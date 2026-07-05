@@ -115,6 +115,10 @@
     input:focus, select:focus { outline: none; border-color: #2e5fad; background: #fff;
       box-shadow: 0 0 0 3px rgba(46,95,173,.14); }
     input::placeholder { color: #9aa9c4; font-weight: 500; }
+    /* En la barra de evento (fondo azul) el foco mantiene el estilo oscuro */
+    .evento-bar input:focus, .evento-bar select:focus {
+      background: rgba(255,255,255,.18); color: #fff; border-color: rgba(255,255,255,.6);
+      box-shadow: 0 0 0 3px rgba(255,255,255,.15); }
     .form-group { margin-bottom: 10px; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
@@ -483,10 +487,12 @@ window.firebaseUtils = {
 const { useState, useEffect, useRef, useCallback } = React;
 
 const ESTADIOS = [
-  'BOCA JRS','RIVER PLATE','SAN LORENZO','HURACÁN','VÉLEZ SARSFIELD',
-  'NUEVA CHICAGO','ALL BOYS','RIESTRA','BARRACAS CENTRAL',
-  'ARGENTINOS JRS','CAMPO DE POLO',
-  'VÉLEZ (Recital)','RIVER (Recital)','HURACÁN (Recital)'
+  'ALL BOYS','ARGENTINOS JRS','BARRACAS CENTRAL','BOCA JRS','CAMPO DE POLO',
+  'COMUNICACIONES','DEF. DE BELGRANO','ESPAÑOL','EXCURSIONISTAS','FERRO',
+  'GRAL. LAMADRID','HURACÁN','MALVINAS ARGENTINAS','MOVISTAR ARENA',
+  'NUEVA CHICAGO','RIESTRA','RIVER PLATE','SACACHISPAS','SAN LORENZO',
+  'VÉLEZ SARSFIELD',
+  'HURACÁN (Recital)','RIVER (Recital)','VÉLEZ (Recital)'
 ];
 
 // Estadios que tienen diferenciación de anillo (muestran panel 3er Anillo)
@@ -500,9 +506,9 @@ const ESTADIOS_RIVER = new Set(['RIVER PLATE']);
 
 const JERARQUIA_ORDEN = ['Comisario','Subcomisario','Principal','Inspector','Oficial Mayor'];
 
-const TIPOS_DISPONIBLES = ['CREA','BARRIAL','COMUNAL','DPEM'];
-const TIPO_COLORES = { CREA:'#E65100', BARRIAL:'#2E7D32', COMUNAL:'#1565c0', DPEM:'#e65100' };
-const TIPO_COLORES_HEX = { CREA:'E65100', BARRIAL:'2E7D32', COMUNAL:'1565C0', DPEM:'e65100' };
+const TIPOS_DISPONIBLES = ['CREA','BARRIAL','COMUNAL','DPEM','DOU'];
+const TIPO_COLORES = { CREA:'#E65100', BARRIAL:'#2E7D32', COMUNAL:'#1565c0', DPEM:'#e65100', DOU:'#6a1b9a' };
+const TIPO_COLORES_HEX = { CREA:'E65100', BARRIAL:'2E7D32', COMUNAL:'1565C0', DPEM:'e65100', DOU:'6A1B9A' };
 const TIPO_BG_WORD = { CREA:'FFCC80', BARRIAL:'A5D6A7', COMUNAL:'90CAF9', DPEM:'FFF3E0' };
 const TIPO_BG_WORD_TITLE = { CREA:'FF9800', BARRIAL:'66BB6A', COMUNAL:'42A5F5', DPEM:'1a3a6b' };
 const TIPO_TEXT_WORD_TITLE = { CREA:'4E2700', BARRIAL:'1B5E20', COMUNAL:'0D47A1', DPEM:'FFFFFF' };
