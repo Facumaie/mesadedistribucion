@@ -786,19 +786,26 @@ function buildCampoPDF(operativo, asignaciones) {
   doc.setFillColor(238, 242, 249);
   doc.rect(0, 31.2, W, 12.5, 'F');
   const datos = [
-    ['ESTADIO', operativo.estadio || '—'],
-    ['EVENTO', operativo.partido || '—'],
-    ['FECHA', fmtFecha(operativo.fecha)],
-    ['PERSONAL', `${totalCargados} / ${totalCeldas}`],
+    ['ESTADIO', operativo.estadio || '—', 0.23],
+    ['EVENTO', operativo.partido || '—', 0.42],
+    ['FECHA', fmtFecha(operativo.fecha), 0.16],
+    ['PERSONAL', `${totalCargados} / ${totalCeldas}`, 0.19],
   ];
-  const colW = (W - 28) / 4;
-  datos.forEach(([lab, val], i) => {
-    const x = 14 + i * colW;
+  let xDato = 14;
+  const usable = W - 28;
+  datos.forEach(([lab, val, frac]) => {
+    const anchoCol = usable * frac;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(6.2);
     doc.setTextColor(110, 128, 158);
-    doc.text(lab, x, 35.6);
-    doc.setFontSize(9); doc.setTextColor(...NAVY);
-    doc.text(String(val).slice(0, 34), x, 40.6);
+    doc.text(lab, xDato, 35.6);
+    // Reducir la fuente hasta que el valor entre en su columna (mín. 6.4), y truncar si aún no entra
+    let fs = 9; let texto = String(val);
+    doc.setFontSize(fs); doc.setTextColor(...NAVY);
+    while (fs > 6.4 && doc.getTextWidth(texto) > anchoCol - 3) { fs -= 0.4; doc.setFontSize(fs); }
+    while (texto.length > 4 && doc.getTextWidth(texto + '…') > anchoCol - 3) texto = texto.slice(0, -1);
+    if (texto !== String(val)) texto += '…';
+    doc.text(texto, xDato, 40.6);
+    xDato += anchoCol;
   });
 
   let startY = 48;
@@ -807,6 +814,10 @@ function buildCampoPDF(operativo, asignaciones) {
   const _iMot = secciones.indexOf('MOTORIZADA');
   if (_iMot !== -1) { secciones.splice(_iMot, 1); secciones.push('MOTORIZADA'); }
 
+  const COLS = { 0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 32 }, 2: { cellWidth: 15, halign: 'center' }, 3: { cellWidth: 80 }, 4: { cellWidth: 'auto' } };
+  const ESTILOS = { fontSize: 7.2, cellPadding: { top: 1.3, bottom: 1.3, left: 2, right: 2 }, textColor: [35, 42, 55], lineColor: [214, 221, 232], lineWidth: 0.12 };
+  const MARGEN = { left: 14, right: 14, top: 12, bottom: 15 };
+
   secciones.forEach(sec => {
     const pts = operativo.puestos.filter(p => p.seccion === sec);
     const secCeldas = pts.reduce((s, p) => s + (p.celdas || 0), 0);
@@ -814,16 +825,39 @@ function buildCampoPDF(operativo, asignaciones) {
       let n = 0; for (let i = 0; i < (p.celdas || 0); i++) if (asigPorSlot[p.pid + '_s' + i]) n++;
       return s + n;
     }, 0);
-    const body = [];
-    const filasPuesto = new Set();
+
+    // Encabezado de sección + fila de columnas (tabla solo-cabecera)
+    doc.autoTable({
+      startY,
+      head: [[{ content: sec, colSpan: 4, styles: { halign: 'left' } },
+              { content: `${secCarg} / ${secCeldas}`, styles: { halign: 'right' } }],
+             ['Nº', 'JERARQUÍA', 'LP', 'EFECTIVO', 'TELÉFONO']],
+      body: [],
+      theme: 'grid',
+      styles: ESTILOS,
+      headStyles: { fontSize: 7, cellPadding: 1.6 },
+      willDrawCell: (data) => {
+        if (data.section === 'head' && data.row.index === 0) {
+          data.cell.styles.fillColor = NAVY; data.cell.styles.textColor = [255, 255, 255];
+          data.cell.styles.fontStyle = 'bold'; data.cell.styles.fontSize = 8.2;
+        }
+        if (data.section === 'head' && data.row.index === 1) {
+          data.cell.styles.fillColor = [88, 108, 143]; data.cell.styles.textColor = [235, 240, 248];
+        }
+      },
+      columnStyles: COLS,
+      margin: MARGEN,
+    });
+    startY = doc.lastAutoTable.finalY;
+
+    // Cada puesto = tabla propia con pageBreak 'avoid': el título nunca queda solo al pie
     pts.forEach(p => {
       const jefe = p.jefeNombre ? `    ·    Jefe: ${[p.jefeRango, p.jefeNombre].filter(Boolean).join(' ')}${p.jefeTel ? ' · Tel ' + p.jefeTel : ''}` : '';
-      filasPuesto.add(body.length);
-      body.push([{
+      const body = [[{
         content: `${p.nombre}${p.descripcion ? '  (' + p.descripcion + ')' : ''}${p.tipo ? '    [' + p.tipo + ']' : ''}${jefe}`,
         colSpan: 5,
         styles: { fillColor: [232, 238, 247], textColor: NAVY, fontStyle: 'bold', fontSize: 7.4, cellPadding: { top: 1.8, bottom: 1.8, left: 3.2, right: 2 } },
-      }]);
+      }]];
       const asignados = [];
       let nVacantes = 0;
       for (let i = 0; i < (p.celdas || 0); i++) {
@@ -837,36 +871,33 @@ function buildCampoPDF(operativo, asignaciones) {
         body.push([String(idx + 1), a.grado || '', a.lp || '', [a.apellido, a.nombre].filter(Boolean).join(', '), a.tel || '']));
       for (let k = 0; k < nVacantes; k++)
         body.push([String(asignados.length + k + 1), { content: '— sin cubrir —', colSpan: 4, styles: { textColor: [178, 60, 60], fontStyle: 'italic' } }]);
+
+      doc.autoTable({
+        startY,
+        body,
+        showHead: 'never',
+        pageBreak: 'avoid',            // el puesto entero salta de página si no entra
+        theme: 'grid',
+        styles: ESTILOS,
+        willDrawCell: (data) => {
+          // Zebra: celda por medio con tinte suave (la fila 0 es el título del puesto)
+          if (data.section === 'body' && data.row.index > 0 && data.row.index % 2 === 0) {
+            if (!data.cell.styles.fillColor || data.cell.styles.fillColor === false)
+              data.cell.styles.fillColor = [243, 246, 251];
+          }
+        },
+        didDrawCell: (data) => {
+          if (data.section === 'body' && data.column.index === 0 && data.row.index === 0) {
+            doc.setFillColor(...GOLD);
+            doc.rect(data.cell.x, data.cell.y, 1.3, data.cell.height, 'F');
+          }
+        },
+        columnStyles: COLS,
+        margin: MARGEN,
+      });
+      startY = doc.lastAutoTable.finalY;
     });
-    doc.autoTable({
-      startY,
-      head: [[{ content: `${sec}`, colSpan: 4, styles: { halign: 'left' } },
-              { content: `${secCarg} / ${secCeldas}`, styles: { halign: 'right' } }],
-             ['Nº', 'JERARQUÍA', 'LP', 'EFECTIVO', 'TELÉFONO']],
-      body,
-      theme: 'grid',
-      styles: { fontSize: 7.2, cellPadding: { top: 1.3, bottom: 1.3, left: 2, right: 2 }, textColor: [35, 42, 55], lineColor: [214, 221, 232], lineWidth: 0.12 },
-      headStyles: { fontSize: 7, cellPadding: 1.6 },
-      willDrawCell: (data) => {
-        if (data.section === 'head' && data.row.index === 0) {
-          data.cell.styles.fillColor = NAVY; data.cell.styles.textColor = [255, 255, 255];
-          data.cell.styles.fontStyle = 'bold'; data.cell.styles.fontSize = 8.2;
-        }
-        if (data.section === 'head' && data.row.index === 1) {
-          data.cell.styles.fillColor = [88, 108, 143]; data.cell.styles.textColor = [235, 240, 248];
-        }
-      },
-      didDrawCell: (data) => {
-        // Acento dorado a la izquierda de cada fila de puesto
-        if (data.section === 'body' && data.column.index === 0 && filasPuesto.has(data.row.index)) {
-          doc.setFillColor(...GOLD);
-          doc.rect(data.cell.x, data.cell.y, 1.3, data.cell.height, 'F');
-        }
-      },
-      columnStyles: { 0: { cellWidth: 8, halign: 'center' }, 1: { cellWidth: 32 }, 2: { cellWidth: 15, halign: 'center' }, 3: { cellWidth: 80 }, 4: { cellWidth: 'auto' } },
-      margin: { left: 14, right: 14, top: 12, bottom: 15 },
-    });
-    startY = doc.lastAutoTable.finalY + 4.5;
+    startY += 4.5;
   });
 
   // ── Pie de página ──
