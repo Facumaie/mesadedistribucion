@@ -1,0 +1,7 @@
+# Configuración de build — Mesa de Distribución DPEM
+# La "smart detection" de secretos de Netlify marca la apiKey de Firebase (AIza...)
+# como posible secreto. Esa clave es pública por diseño (va en el cliente);
+# la seguridad está en las reglas de Firestore. Se desactiva la detección heurística.
+
+[build.environment]
+  SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
