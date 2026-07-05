@@ -10,6 +10,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Mesa DPEM" />
   <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <title>Mesa de Distribución – DPEM</title>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -24,7 +27,8 @@
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; font-size: 13px; background: #f0f2f5; color: #222; }
+    body { font-family: 'Manrope', 'Segoe UI', Arial, sans-serif; font-size: 13px; background: #f0f2f5; color: #222; }
+    button, input, select, textarea { font-family: inherit; }
 
     .header {
       background: linear-gradient(135deg, #1a3a6b 0%, #2e5fad 100%);
@@ -242,6 +246,55 @@
     .tipo-pill {
       padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700;
       display: inline-flex; align-items: center; gap: 3px; line-height: 1.4;
+    }
+
+    /* ── LAYOUT CON SIDEBAR (estilo Sistema AIR) ── */
+    .layout { min-height: 100vh; }
+    .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 236px; z-index: 900;
+      background: linear-gradient(180deg, #0c2b57 0%, #10336a 100%);
+      color: #e8eefb; display: flex; flex-direction: column; padding: 14px 12px;
+      box-shadow: 2px 0 14px rgba(6,20,45,.35); }
+    .sb-brand { display: flex; gap: 10px; align-items: center; padding: 6px 6px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.08); }
+    .sb-escudo { width: 46px; height: 46px; background: #fff; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 13px; color: #12336a; overflow: hidden; flex-shrink: 0; }
+    .sb-escudo img { width: 40px; height: 40px; object-fit: contain; }
+    .sb-title { font-size: 13px; font-weight: 800; letter-spacing: .4px; line-height: 1.25; color: #fff; }
+    .sb-sub { font-size: 9.5px; font-weight: 700; letter-spacing: 1.6px; color: #8fb0e5; margin-top: 3px; }
+    .sb-nav { margin: 14px -12px 0; padding: 0 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; overflow-y: auto; }
+    .sb-item { position: relative; display: flex; align-items: center; gap: 11px; width: 100%;
+      padding: 11px 12px; background: transparent; border: none; border-radius: 11px;
+      color: #c7d6f2; font-size: 13.5px; font-weight: 700; cursor: pointer; text-align: left;
+      transition: background .15s, color .15s; }
+    .sb-item:hover { background: rgba(255,255,255,.07); color: #fff; }
+    .sb-item.active { background: #fff; color: #12336a; box-shadow: 0 3px 10px rgba(5,18,42,.35); }
+    .sb-item.active::before { content: ''; position: absolute; left: -12px; top: 9px; bottom: 9px;
+      width: 4px; background: #f2b705; border-radius: 0 4px 4px 0; }
+    .sb-item svg { flex-shrink: 0; }
+    .sb-badge { margin-left: auto; background: #f2b705; color: #3a2c00; font-size: 10px;
+      font-weight: 800; padding: 1px 7px; border-radius: 9px; }
+    .sb-footer { padding-top: 10px; border-top: 1px solid rgba(255,255,255,.08); }
+    .sb-user { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px;
+      background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14);
+      border-radius: 12px; color: #e8eefb; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .sb-user:hover { background: rgba(255,255,255,.13); }
+    .sb-user-name { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .main { margin-left: 236px; min-height: 100vh; }
+    .topbar { display: none; }
+    .sb-backdrop { display: none; }
+    @media (max-width: 899px) {
+      .sidebar { transform: translateX(-105%); transition: transform .22s ease; width: 252px; }
+      .sidebar.open { transform: translateX(0); }
+      .main { margin-left: 0; }
+      .topbar { display: flex; align-items: center; gap: 10px;
+        background: linear-gradient(135deg, #0c2b57, #1a3a6b); color: #fff;
+        padding: 10px 14px; position: sticky; top: 0; z-index: 800; }
+      .topbar-burger { background: rgba(255,255,255,.14); border: none; color: #fff;
+        width: 38px; height: 38px; border-radius: 10px; font-size: 18px; cursor: pointer; flex-shrink: 0; }
+      .topbar-title { font-weight: 800; font-size: 14px; letter-spacing: .4px; }
+      .sb-backdrop { display: block; position: fixed; inset: 0; background: rgba(4,12,28,.55); z-index: 899; }
+      .campo-header-op { top: 58px; }
     }
 
     /* ── CARGA EN CAMPO (mobile-first) ── */
@@ -1691,6 +1744,61 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
 }
 
 // ── HEADER ────────────────────────────────────────────────────
+function SbIcon({ id }) {
+  const common = { width: 19, height: 19, viewBox: '0 0 20 20', fill: 'none',
+    stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
+  if (id === 'distribucion') return (
+    <svg {...common}><path d="M5 2.5h6l3.5 3.5v10.5a1.5 1.5 0 01-1.5 1.5H5a1.5 1.5 0 01-1.5-1.5v-12A1.5 1.5 0 015 2.5z"/><path d="M11 2.5V6h3.5M6.5 10h6M6.5 13h6"/></svg>);
+  if (id === 'historial') return (
+    <svg {...common}><path d="M3 5.5A1.5 1.5 0 014.5 4h4l1.8 2h5.2A1.5 1.5 0 0117 7.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 013 14.5v-9z"/></svg>);
+  if (id === 'campo') return (
+    <svg {...common}><rect x="6" y="2.5" width="8" height="15" rx="2"/><path d="M9 15h2"/></svg>);
+  if (id === 'admin') return (
+    <svg {...common}><circle cx="10" cy="10" r="3"/><path d="M10 2.5V5M10 15v2.5M2.5 10H5M15 10h2.5M4.7 4.7l1.8 1.8M13.5 13.5l1.8 1.8M15.3 4.7l-1.8 1.8M6.5 13.5l-1.8 1.8"/></svg>);
+  return null;
+}
+
+function Sidebar({ usuario, rol, tab, onTab, historialCount, onLogout, open, onClose }) {
+  const items = [];
+  if (rol !== 'operador') {
+    items.push({ id: 'distribucion', label: 'Distribución' });
+    items.push({ id: 'historial', label: 'Historial', badge: historialCount });
+  }
+  items.push({ id: 'campo', label: 'Carga Operativa' });
+  if (rol === 'admin') items.push({ id: 'admin', label: 'Admin' });
+  return (
+    <aside className={'sidebar' + (open ? ' open' : '')}>
+      <div className="sb-brand">
+        <div className="sb-escudo">
+          <img src="escudo.png" alt=""
+            onError={e => { e.target.style.display = 'none'; e.target.parentNode.textContent = 'MD'; }}/>
+        </div>
+        <div>
+          <div className="sb-title">MESA DE<br/>DISTRIBUCIÓN</div>
+          <div className="sb-sub">DSED · DPEM</div>
+        </div>
+      </div>
+      <nav className="sb-nav">
+        {items.map(it => (
+          <button key={it.id} className={'sb-item' + (tab === it.id ? ' active' : '')}
+            onClick={() => { onTab(it.id); onClose(); }}>
+            <SbIcon id={it.id}/>
+            <span>{it.label}</span>
+            {it.badge > 0 && <span className="sb-badge">{it.badge}</span>}
+          </button>
+        ))}
+      </nav>
+      <div className="sb-footer">
+        <button className="sb-user" onClick={onLogout} title="Cerrar sesión">
+          <span>👤</span>
+          <span className="sb-user-name">{usuario.jerarquia ? usuario.jerarquia + ' ' : ''}{usuario.nombre}</span>
+          <span style={{opacity:.8}}>⎋</span>
+        </button>
+      </div>
+    </aside>
+  );
+}
+
 function Header({ usuario, onLogout }) {
   return (
     <div className="header">
@@ -3416,7 +3524,7 @@ function AsignarModal({ puesto, slot, nomina, asignaciones, lpEnOtros = {}, onCo
           {!manual ? (<>
             <label className="campo-label">LEGAJO O APELLIDO</label>
             <input ref={inpRef} type="text" autoCapitalize="characters" autoComplete="off"
-              placeholder="Ej: 27844 o MAIELLARO"
+              placeholder="Ej: 21458 o GONZÁLEZ"
               value={lp} onChange={e => buscar(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && (resultados.length === 1 ? elegir(resultados[0]) : confirmar())}
               className="campo-input-lp" style={{fontSize:'17px',letterSpacing:'1px'}}/>
@@ -3867,7 +3975,7 @@ function CampoTab({ usuario, rol, toast }) {
     const cerrados = operativos.filter(o => o.estado !== 'abierto');
     return (
       <div className="campo-wrap">
-        <div className="campo-titulo">📱 CARGA EN CAMPO</div>
+        <div className="campo-titulo">📱 CARGA OPERATIVA</div>
         {nomina === null && <div className="campo-aviso">⏳ Descargando nómina...</div>}
         {nomina !== null && nomina.size === 0 && <div className="campo-aviso" style={{background:'#fff3e0',color:'#b26a00'}}>⚠️ No hay nómina cargada. El admin debe subirla desde la solapa Admin.</div>}
         {abiertos.length === 0 && <div className="campo-aviso">No hay operativos abiertos. {rol !== 'operador' ? 'Publicá uno desde "Distribución Actual".' : 'Esperá a que la Mesa publique el operativo.'}</div>}
@@ -4764,10 +4872,14 @@ function LoginModal({ onLogin }) {
           color:'#fff', textAlign:'center',
         }}>
           <div style={{
-            width:'60px',height:'60px',background:'#fff',borderRadius:'50%',
-            margin:'0 auto 12px',display:'flex',alignItems:'center',justifyContent:'center',
-            fontWeight:'900',fontSize:'11px',color:'#1a3a6b',lineHeight:'1.2',
-          }}>PCBA<br/>DPEM</div>
+            width:'86px',height:'86px',background:'#fff',borderRadius:'20px',
+            margin:'0 auto 14px',display:'flex',alignItems:'center',justifyContent:'center',
+            fontWeight:'900',fontSize:'12px',color:'#1a3a6b',lineHeight:'1.2',
+            overflow:'hidden',boxShadow:'0 4px 14px rgba(0,0,0,.25)',
+          }}>
+            <img src="escudo.png" alt="DPEM" style={{width:'76px',height:'76px',objectFit:'contain'}}
+              onError={e => { e.target.style.display='none'; e.target.parentNode.textContent='DPEM'; }}/>
+          </div>
           <div style={{fontSize:'16px',fontWeight:'700',letterSpacing:'1px'}}>MESA DE DISTRIBUCIÓN</div>
           <div style={{fontSize:'11px',opacity:.8,marginTop:'4px'}}>
             {step==='legajo' ? 'Ingreso con Legajo' : `Legajo ${pendingUser?.legajo} · ${pendingUser?.nombre}`}
@@ -4981,6 +5093,7 @@ function App() {
   }, [usuario]);
 
   const [publicando, setPublicando] = useState(false);
+  const [sbOpen, setSbOpen] = useState(false);
   const handlePublicarCampo = async () => {
     if (!estadioNombre) { toast('Seleccioná el estadio antes de publicar.','error'); return; }
     if (!evento.fecha) { toast('Completá la fecha del evento.','error'); return; }
@@ -5002,7 +5115,7 @@ function App() {
         creadoEn: new Date().toISOString(),
       });
       _trackActivity(`publicó operativo de campo (${estadioNombre})`);
-      toast('✓ Operativo publicado a Carga en Campo','success');
+      toast('✓ Operativo publicado a Carga Operativa','success');
       setTab('campo');
     } catch(err) { toast('Error al publicar: '+err.message,'error'); }
     finally { setPublicando(false); }
@@ -5299,27 +5412,17 @@ function App() {
   );
 
   return (
-    <div>
-      <Header usuario={usuario} onLogout={handleLogout}/>
-      {ActivityBanner}
-      <div className="tabs">
-        {rol!=='operador' && <>
-          <button className={`tab-btn ${tab==='distribucion'?'active':''}`} onClick={()=>setTab('distribucion')}>
-            📋 Distribución Actual
-          </button>
-          <button className={`tab-btn ${tab==='historial'?'active':''}`} onClick={()=>setTab('historial')}>
-            📁 Historial
-            {historial.length>0&&<span className="badge badge-orange" style={{marginLeft:'4px'}}>{historial.length}</span>}
-          </button>
-        </>}
-        <button className={`tab-btn ${tab==='campo'?'active':''}`} onClick={()=>setTab('campo')}>
-          📱 Carga en Campo
-        </button>
-        {rol==='admin' &&
-          <button className={`tab-btn ${tab==='admin'?'active':''}`} onClick={()=>setTab('admin')}>
-            ⚙️ Admin
-          </button>}
+    <div className="layout">
+      <div className="topbar">
+        <button className="topbar-burger" onClick={()=>setSbOpen(true)}>☰</button>
+        <span className="topbar-title">MESA DE DISTRIBUCIÓN</span>
       </div>
+      {sbOpen && <div className="sb-backdrop" onClick={()=>setSbOpen(false)}/>}
+      <Sidebar usuario={usuario} rol={rol} tab={tab} onTab={setTab}
+        historialCount={historial.length} onLogout={handleLogout}
+        open={sbOpen} onClose={()=>setSbOpen(false)}/>
+      <div className="main">
+      {ActivityBanner}
 
       {tab==='distribucion' && rol!=='operador' &&<>
         <EventoBar evento={evento} onChange={setEvento} onGuardar={handleGuardar}
@@ -5337,7 +5440,7 @@ function App() {
           }}>
             <span style={{fontSize:'16px'}}>📱</span>
             <span>
-              <strong>Carga en Campo:</strong> publicá esta distribución para que los operadores carguen efectivos desde el celular ({totalItems} puestos · {totalEfectivos + motos.length} celdas).
+              <strong>Carga Operativa:</strong> publicá esta distribución para que los operadores carguen efectivos desde el celular ({totalItems} puestos · {totalEfectivos + motos.length} celdas).
             </span>
             <button
               className="btn btn-sm"
@@ -5345,7 +5448,7 @@ function App() {
               onClick={handlePublicarCampo}
               disabled={publicando}
             >
-              {publicando ? '⏳ Publicando...' : '📡 Publicar a Campo'}
+              {publicando ? '⏳ Publicando...' : '📡 Publicar a Carga Operativa'}
             </button>
           </div>
         )}
@@ -5484,6 +5587,7 @@ function App() {
           onExportWord={handleExportFromHist}
         />
       )}
+      </div>
 
       <div className="toast-container">{toasts.map(t=><div key={t.id} className={`toast ${t.type}`}>{t.msg}{t.action&&<span className="toast-action" onClick={()=>{t.action.onClick();dismissToast(t.id);}}>{t.action.label}</span>}</div>)}</div>
     </div>
