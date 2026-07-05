@@ -595,6 +595,9 @@ const USUARIOS_AUTORIZADOS = {
 // ── CARGA EN CAMPO · helpers globales ──────────────────────────
 // ═══════════════════════════════════════════════════════════════
 
+// Versión de la app: se muestra en el login y el sidebar, y permite detectar actualizaciones
+const APP_VERSION = 'v2.4.0';
+
 // Legajos con rol ADMIN (acceso total + panel Admin)
 const ADMIN_LEGAJOS = new Set(['27844']);
 
@@ -2009,6 +2012,7 @@ function Sidebar({ usuario, rol, tab, onTab, historialCount, onLogout, open, onC
           <span className="sb-user-name">{usuario.jerarquia ? usuario.jerarquia + ' ' : ''}{usuario.nombre}</span>
           <span style={{opacity:.8}}>⎋</span>
         </button>
+        <div style={{textAlign:'center',fontSize:'9px',color:'#6d86ad',marginTop:'8px',letterSpacing:'.5px'}}>{APP_VERSION}</div>
       </div>
     </aside>
   );
@@ -5570,7 +5574,7 @@ function LoginModal({ onLogin }) {
           {step === 'legajo' ? (buscando ? '⏳ VERIFICANDO...' : 'CONTINUAR →') : 'INGRESAR'}
         </button>
 
-        <div className="login-footer">Dirección Prevención en Eventos Masivos<br/>Depto. Seguridad en Eventos Deportivos</div>
+        <div className="login-footer">Dirección Prevención en Eventos Masivos<br/>Depto. Seguridad en Eventos Deportivos<br/><span style={{opacity:.7}}>{APP_VERSION}</span></div>
       </div>
     </div>
   );
@@ -5721,6 +5725,23 @@ function App() {
   const [publicando, setPublicando] = useState(false);
   const [sbOpen, setSbOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem('mesa-dist-dark') === '1'; } catch(e) { return false; } });
+  const [hayUpdate, setHayUpdate] = useState(false);
+  useEffect(() => {
+    let activo = true;
+    const chequear = async () => {
+      try {
+        const r = await fetch(window.location.pathname.endsWith('/') ? 'index.html' : window.location.pathname, { cache: 'no-store' });
+        const t = await r.text();
+        const m = t.match(/APP_VERSION = '([^']+)'/);
+        if (activo && m && m[1] !== APP_VERSION) setHayUpdate(true);
+      } catch (e) {}
+    };
+    const onVis = () => { if (document.visibilityState === 'visible') chequear(); };
+    chequear();
+    const t = setInterval(chequear, 10 * 60 * 1000);
+    document.addEventListener('visibilitychange', onVis);
+    return () => { activo = false; clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
+  }, []);
   useEffect(() => {
     document.body.classList.toggle('dark', darkMode);
     try { localStorage.setItem('mesa-dist-dark', darkMode ? '1' : '0'); } catch(e) {}
@@ -6050,6 +6071,13 @@ function App() {
         open={sbOpen} onClose={()=>setSbOpen(false)}
         dark={darkMode} onToggleDark={()=>setDarkMode(d=>!d)}/>
       <div className="main">
+      {hayUpdate && (
+        <div onClick={() => window.location.reload()}
+          style={{background:'#f2b705',color:'#3a2c00',padding:'10px 16px',fontSize:'13px',fontWeight:'800',
+            textAlign:'center',cursor:'pointer',letterSpacing:'.3px'}}>
+          🔄 Hay una versión nueva de la app — TOCÁ ACÁ PARA ACTUALIZAR
+        </div>
+      )}
       {ActivityBanner}
 
       {tab==='distribucion' && rol!=='operador' &&<>
