@@ -2162,6 +2162,16 @@ function PanelHistorial({ historial, estadioActual, onCargar, onVer, onEliminar,
     (h.estadio||'').toLowerCase().includes(search.toLowerCase()) ||
     (h.localidad||'').toLowerCase().includes(search.toLowerCase()));
 
+  // Agrupar por estadio para acortar la lista
+  const [gruposAbiertos, setGruposAbiertos] = React.useState({});
+  const grupos = [];
+  filtered.forEach(h => {
+    const key = h.estadio || 'SIN ESTADIO';
+    let g = grupos.find(x => x.estadio === key);
+    if (!g) { g = { estadio: key, items: [] }; grupos.push(g); }
+    g.items.push(h);
+  });
+
   return (
     <div className="card hist-sticky-panel" style={{display:'flex',flexDirection:'column',maxHeight:'calc(100vh - 130px)',position:'sticky',top:'74px'}}>
       <div className="card-header ch-amber">
@@ -2196,7 +2206,21 @@ function PanelHistorial({ historial, estadioActual, onCargar, onVer, onEliminar,
           {estadioActual && soloEstadio ? `Sin distribuciones guardadas para ${estadioActual}.` : 'Sin distribuciones guardadas.'}
         </div>}
         <div className="hist-scroll" style={{flex:1,overflowY:'auto',paddingRight:'4px'}}>
-          {filtered.map(h=>(
+          {grupos.map(g => {
+            // Con búsqueda activa o un solo grupo, se muestran desplegados
+            const abierto = grupos.length === 1 || !!search || !!gruposAbiertos[g.estadio];
+            return (
+            <div key={g.estadio} style={{marginBottom:'6px'}}>
+              <div onClick={() => setGruposAbiertos(s => ({...s, [g.estadio]: !abierto}))}
+                style={{display:'flex',alignItems:'center',gap:'7px',background:'linear-gradient(90deg,#12336a,#1a3a6b)',
+                  color:'#fff',padding:'8px 11px',borderRadius:'9px',cursor:'pointer',userSelect:'none',
+                  fontSize:'11px',fontWeight:'800',letterSpacing:'.4px'}}>
+                <span>{abierto ? '▾' : '▸'}</span>
+                <span style={{flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>🏟 {g.estadio}</span>
+                <span style={{background:'rgba(255,255,255,.18)',padding:'1px 8px',borderRadius:'9px',fontSize:'10px',flexShrink:0}}>{g.items.length}</span>
+                <span style={{opacity:.7,fontWeight:'600',fontSize:'10px',flexShrink:0}}>{fmtFecha(g.items[0].fechaEvento)}</span>
+              </div>
+              {abierto && g.items.map(h=>(
             <div key={h.id} className="hist-item" onClick={()=>onCargar(h)} title="Cargar para editar">
               <div style={{display:'flex',alignItems:'flex-start',gap:'8px'}}>
                 <div style={{flex:1,minWidth:0}}>
@@ -2227,7 +2251,10 @@ function PanelHistorial({ historial, estadioActual, onCargar, onVer, onEliminar,
                 {h.guardadoPor && <span style={{marginLeft:'6px',color:'#1a3a6b',fontWeight:'600'}}> por {h.guardadoPor.jerarquia} {h.guardadoPor.nombre} (LP {h.guardadoPor.legajo})</span>}
               </div>
             </div>
-          ))}
+              ))}
+            </div>
+            );
+          })}
         </div>
       </div>
     </div>
