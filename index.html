@@ -816,18 +816,20 @@ function buildCampoPDF(operativo, asignaciones) {
   return { blob: doc.output('blob'), nombre };
 }
 
-// Compartir el PDF por el menú del teléfono (WhatsApp, etc.). Devuelve true si se compartió.
+// Compartir el PDF por el menú del teléfono (WhatsApp, etc.).
+// Devuelve {ok:true} si se compartió/canceló, {ok:false, motivo} si hay que caer a descarga.
 async function compartirPDF(blob, nombre) {
+  if (!navigator.share) return { ok: false, motivo: 'sin-soporte' };
+  // Nombre de archivo sin acentos/espacios: algunas apps rechazan el share por el nombre
+  const nombreSeguro = nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w.\-]+/g, '_');
   try {
-    const file = new File([blob], nombre, { type: 'application/pdf' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: nombre });
-      return true;
-    }
+    const file = new File([blob], nombreSeguro, { type: 'application/pdf' });
+    await navigator.share({ files: [file], title: nombreSeguro });
+    return { ok: true };
   } catch (e) {
-    if (e && e.name === 'AbortError') return true; // el usuario canceló el share: no descargar de nuevo
+    if (e && e.name === 'AbortError') return { ok: true }; // el usuario cerró el menú: no descargar encima
+    return { ok: false, motivo: (e && e.name) || 'error' };
   }
-  return false;
 }
 
 
@@ -4402,14 +4404,16 @@ function CampoTab({ usuario, rol, toast }) {
     const avisoChk = sinAvisar > 0 ? `\n⚠️ ${sinAvisar} efectivo${sinAvisar > 1 ? 's' : ''} sin marcar como avisado${sinAvisar > 1 ? 's' : ''} (✅).` : '';
     if (!confirm(`¿Finalizar la carga y cerrar el operativo?${faltan > 0 ? '\n\n⚠️ Quedan ' + faltan + ' celdas sin cubrir.' : '\n\nCarga completa ✓'}${avisoChk}\n\nSe genera el PDF para difundir.`)) return;
     try {
+      // Compartir primero: el menú de Android exige que el toque del usuario siga "vivo",
+      // y un await de red previo lo invalida. El cierre en Firestore va después.
+      const { blob, nombre } = buildCampoPDF(operativo, asigsMerged);
+      const res = await compartirPDF(blob, nombre);
+      if (!res.ok) downloadBlob(blob, nombre);
       await db.collection(collections.operativos).doc(opId).update({
         estado: 'cerrado',
         cerradoPor: { legajo: usuario.legajo, nombre: usuario.nombre },
         cerradoEn: new Date().toISOString(),
       });
-      const { blob, nombre } = buildCampoPDF(operativo, asigsMerged);
-      const compartido = await compartirPDF(blob, nombre);
-      if (!compartido) downloadBlob(blob, nombre);
       toast('✓ Operativo cerrado. PDF generado.', 'success');
     } catch (err) { toast('Error: ' + err.message, 'error'); }
   };
@@ -4418,8 +4422,13 @@ function CampoTab({ usuario, rol, toast }) {
     try {
       const { blob, nombre } = buildCampoPDF(operativo, asigsMerged);
       if (compartir) {
-        const ok = await compartirPDF(blob, nombre);
-        if (!ok) { downloadBlob(blob, nombre); toast('Tu navegador no permite compartir archivos: se descargó el PDF.', 'info'); }
+        const res = await compartirPDF(blob, nombre);
+        if (!res.ok) {
+          downloadBlob(blob, nombre);
+          toast(res.motivo === 'sin-soporte'
+            ? 'Este navegador no tiene menú de compartir: se descargó el PDF.'
+            : `No se pudo abrir el menú de compartir (${res.motivo}): se descargó el PDF.`, 'info');
+        }
       } else {
         downloadBlob(blob, nombre);
         toast('✓ PDF generado', 'success');
