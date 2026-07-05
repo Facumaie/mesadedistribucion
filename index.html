@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" sizes="64x64" href="favicon.png" />
+  <link rel="shortcut icon" href="favicon.png" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#1a3a6b" />
   <meta name="mobile-web-app-capable" content="yes" />
@@ -90,33 +92,39 @@
       padding: 6px 12px; font-size: 11px; text-align: right;
     }
 
-    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 12px; }
+    .card { background: #fff; border-radius: 14px; border: 1px solid #e6ebf4;
+      box-shadow: 0 2px 10px rgba(15,35,70,.06); margin-bottom: 14px; overflow: hidden; }
     .card-header {
-      background: #1a3a6b; color: #fff; padding: 9px 14px;
-      font-size: 11px; font-weight: 700; letter-spacing: .6px;
+      background: #1a3a6b; color: #fff; padding: 11px 16px;
+      font-size: 11.5px; font-weight: 800; letter-spacing: 1px;
       display: flex; align-items: center; justify-content: space-between;
-      border-radius: 8px 8px 0 0;
+      border-radius: 13px 13px 0 0;
     }
     .ch-blue  { background: #2e5fad; }
     .ch-green { background: #2e7d32; }
     .ch-amber { background: #e65100; }
-    .card-body { padding: 12px 14px; }
+    .card-body { padding: 14px 16px; }
 
-    label { font-size: 11px; font-weight: 700; color: #444; display: block; margin-bottom: 3px; }
+    label { font-size: 10.5px; font-weight: 800; color: #44546e; display: block;
+      margin-bottom: 4px; letter-spacing: .5px; }
     input, select {
-      width: 100%; padding: 7px 10px; border: 1px solid #ccc; border-radius: 5px;
-      font-family: Arial, sans-serif; font-size: 13px; background: #fff; color: #222; transition: border-color .2s;
+      width: 100%; padding: 9px 12px; border: 1.5px solid #d4dcea; border-radius: 9px;
+      font-family: inherit; font-size: 13px; font-weight: 500;
+      background: #fbfcfe; color: #1c2b45; transition: border-color .15s, box-shadow .15s, background .15s;
     }
-    input:focus, select:focus { outline: none; border-color: #2e5fad; box-shadow: 0 0 0 2px rgba(46,95,173,.15); }
+    input:focus, select:focus { outline: none; border-color: #2e5fad; background: #fff;
+      box-shadow: 0 0 0 3px rgba(46,95,173,.14); }
+    input::placeholder { color: #9aa9c4; font-weight: 500; }
     .form-group { margin-bottom: 10px; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
     .btn {
       display: inline-flex; align-items: center; gap: 5px;
-      padding: 7px 14px; border: none; border-radius: 5px;
-      font-family: Arial, sans-serif; font-size: 12px; font-weight: 700;
+      padding: 8px 15px; border: none; border-radius: 9px;
+      font-family: inherit; font-size: 12px; font-weight: 700;
       cursor: pointer; transition: all .15s; letter-spacing: .3px;
     }
+    .btn:active { transform: translateY(1px); }
     .btn-primary   { background: #2e5fad; color: #fff; }
     .btn-primary:hover   { background: #1a3a6b; }
     .btn-success   { background: #22863a; color: #fff; }
@@ -704,7 +712,7 @@ function buildPuestosCampo(qths, motos, infanteria, refuerzo, tercerAnillo, esRi
     jefeNombre: r.jefeNombre || null, jefeRango: r.jefeRango || null, jefeTel: r.jefeTel || null,
   }));
   qths.forEach((q, i) => puestos.push({
-    pid: 'qth' + i, seccion: 'QTHs', orden: orden++,
+    pid: 'qth' + i, seccion: 'SECTORES PRINCIPALES', orden: orden++,
     nombre: q.nombre || '', descripcion: q.descripcion || '',
     celdas: q.celdas || 1, tipo: q.tipo || null,
     jefeNombre: q.jefeNombre || null, jefeRango: q.jefeRango || null, jefeTel: q.jefeTel || null,
@@ -1801,6 +1809,8 @@ function SbIcon({ id }) {
     <svg {...common}><path d="M3 5.5A1.5 1.5 0 014.5 4h4l1.8 2h5.2A1.5 1.5 0 0117 7.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 013 14.5v-9z"/></svg>);
   if (id === 'campo') return (
     <svg {...common}><rect x="6" y="2.5" width="8" height="15" rx="2"/><path d="M9 15h2"/></svg>);
+  if (id === 'jefes') return (
+    <svg {...common}><circle cx="7.5" cy="7" r="2.6"/><path d="M2.8 16c.5-2.9 2.4-4.5 4.7-4.5S11.7 13.1 12.2 16"/><circle cx="13.8" cy="7.6" r="2.1"/><path d="M13.2 11.7c2 .1 3.5 1.5 4 4.3"/></svg>);
   if (id === 'admin') return (
     <svg {...common}><circle cx="10" cy="10" r="3"/><path d="M10 2.5V5M10 15v2.5M2.5 10H5M15 10h2.5M4.7 4.7l1.8 1.8M13.5 13.5l1.8 1.8M15.3 4.7l-1.8 1.8M6.5 13.5l-1.8 1.8"/></svg>);
   return null;
@@ -1811,6 +1821,7 @@ function Sidebar({ usuario, rol, tab, onTab, historialCount, onLogout, open, onC
   if (rol !== 'operador') items.push({ id: 'distribucion', label: 'Distribución Previa' });
   items.push({ id: 'campo', label: 'Carga Operativa' });
   if (rol !== 'operador') items.push({ id: 'historial', label: 'Historial por Evento', badge: historialCount });
+  if (rol !== 'operador') items.push({ id: 'jefes', label: 'Jefes de QTH' });
   if (rol === 'admin') items.push({ id: 'admin', label: 'Admin' });
   return (
     <aside className={'sidebar' + (open ? ' open' : '')}>
@@ -1968,7 +1979,7 @@ function EventoBar({ evento, onChange, onGuardar, onNueva, onGuardarPlantilla, q
 
 // ── PANEL JEFES ───────────────────────────────────────────────
 function PanelJefes({ jefes, toast }) {
-  const [open,    setOpen]    = useState(false);
+  const [open,    setOpen]    = useState(true);
   const [loading, setLoading] = useState(false);
   const [search,  setSearch]  = useState('');
   const [form,    setForm]    = useState({ jerarquia:'', efectivo:'', telefono:'' });
@@ -2745,7 +2756,7 @@ function FormQTH({ jefes, editData, onCancelEdit, toast }) {
     <div className={`card ${editData?'edit-inline':''}`}>
       <div className={`card-header ${editData?'ch-blue':''}`} style={{cursor: editData ? 'default' : 'pointer'}}
         onClick={()=>{ if (!editData) setCollapsed(c=>!c); }}>
-        <span>{editData?'✏️ EDITAR QTH':'➕ AGREGAR QTH'} {!editData && <span style={{opacity:.6,fontWeight:'400',fontSize:'10px',marginLeft:'4px'}}>{collapsed?'▼':'▲'}</span>}</span>
+        <span>{editData?'✏️ EDITAR SECTOR PRINCIPAL':'➕ AGREGAR SECTOR PRINCIPAL (QTH)'} {!editData && <span style={{opacity:.6,fontWeight:'400',fontSize:'10px',marginLeft:'4px'}}>{collapsed?'▼':'▲'}</span>}</span>
       </div>
       {!collapsed && <div className="card-body">
         <div className="form-row">
@@ -2986,7 +2997,7 @@ function ListaQTHs({ qths, jefes, toast, onEdit, evento, motos, infanteria, refu
   return (
     <div className="card">
       <div className="card-header">
-        <span>📋 QTHs CONFIGURADOS</span>
+        <span>📋 SECTORES PRINCIPALES</span>
         <div style={{display:'flex',gap:'7px',alignItems:'center'}}>
           <span className="counter-pill">{qths.length} QTHs</span>
           <span className="counter-pill" style={{background:'#ffd54f',color:'#333'}}>{total} celdas</span>
@@ -5323,8 +5334,9 @@ function App() {
           orden: i, creadoEn: new Date(Date.now()+2000+i).toISOString()
         }});
       });
+      // "Refuerzo de sector" se unificó con Sectores Principales: los históricos se cargan como QTHs
       (h.refuerzo||[]).forEach((r,i) => {
-        createOps.push({type:'set', ref: db.collection(collections.refuerzo).doc(), data: {
+        createOps.push({type:'set', ref: db.collection(collections.qths).doc(), data: {
           nombre: r.nombre||'', descripcion: r.descripcion||'', celdas: r.celdas||2,
           tipo: r.tipo||null, jefeId: null, jefeNombre: r.jefeNombre||null, jefeRango: r.jefeRango||null, jefeTel: r.jefeTel||null,
           orden: i, creadoEn: new Date(Date.now()+3000+i).toISOString()
@@ -5350,7 +5362,7 @@ function App() {
       const nInf   = (h.infanteria||[]).length;
       const nRef   = (h.refuerzo||[]).length;
       const n3er   = (h.tercerAnillo||[]).length;
-      toast(`✓ ${nQths} QTHs${nMotos?` · ${nMotos} motos`:''}${n3er?` · ${n3er} 3er anillo`:''}${nInf?` · ${nInf} cortes`:''}${nRef?` · ${nRef} refuerzos`:''} cargados`,'success');
+      toast(`✓ ${nQths} QTHs${nMotos?` · ${nMotos} motos`:''}${n3er?` · ${n3er} 3er anillo`:''}${nInf?` · ${nInf} cortes`:''}${nRef?` · ${nRef} refuerzos (como sectores)`:''} cargados`,'success');
       // Track activity
       _trackActivity('cargó distribución');
     } catch(err) { toast('Error al cargar: '+err.message,'error'); }
@@ -5571,62 +5583,53 @@ function App() {
           </div>
         )}
 
-        <div className="main-layout">
-          <div style={{position:'sticky',top:'74px',alignSelf:'start',maxHeight:'calc(100vh - 90px)',overflowY:'auto'}} className="hist-scroll"><PanelJefes jefes={jefes} toast={toast}/></div>
-          <div>
-            <FormQTH jefes={jefes} editData={editingQTH} onCancelEdit={()=>setEditingQTH(null)} toast={toast}/>
-            <ListaQTHs qths={qths} jefes={jefes} toast={toast} onEdit={q=>setEditingQTH(q)} evento={evento}
-              motos={motos} infanteria={infanteria} refuerzo={refuerzo} tercerAnillo={tercerAnillo}/>
-            <PanelMotorizada motos={motos} toast={toast}/>
+        <div style={{maxWidth:'1100px',margin:'0 auto',padding:'14px'}}>
+          <FormQTH jefes={jefes} editData={editingQTH} onCancelEdit={()=>setEditingQTH(null)} toast={toast}/>
+          <ListaQTHs qths={qths} jefes={jefes} toast={toast} onEdit={q=>setEditingQTH(q)} evento={evento}
+            motos={motos} infanteria={infanteria} refuerzo={refuerzo} tercerAnillo={tercerAnillo}/>
 
-            {/* 3ER ANILLO — solo para estadios con anillo */}
-            {mostrarTercerAnillo && (
-              <PanelSeccion
-                items={tercerAnillo} jefes={jefes} toast={toast}
-                collectionName="tercerAnillo"
-                title="3ER ANILLO"
-                icon="🔵"
-                accentColor="#283593"
-                darkColor="#1a237e"
-                lightBg="#e8eaf6"
-                lightBorder="#c5cae9"
-                itemLabel="puesto"
-                addLabel="Agregar puesto de 3er Anillo"
-              />
-            )}
+          <PanelSeccion
+            items={infanteria} jefes={jefes} toast={toast}
+            collectionName="infanteria"
+            title="CORTES CON INFANTERÍA"
+            icon="🚧"
+            accentColor="#c62828"
+            darkColor="#b71c1c"
+            lightBg="#fff5f5"
+            lightBorder="#ffcdd2"
+            itemLabel="corte"
+            addLabel="Agregar corte"
+            isRiver={ESTADIOS_RIVER.has(evento.estadio)}
+          />
 
+          <PanelMotorizada motos={motos} toast={toast}/>
+
+          {/* 3ER ANILLO — solo para estadios con anillo */}
+          {mostrarTercerAnillo && (
             <PanelSeccion
-              items={refuerzo} jefes={jefes} toast={toast}
-              collectionName="refuerzo"
-              title="REFUERZO DE SECTOR"
-              icon="🟢"
-              accentColor="#2e7d32"
-              darkColor="#1b5e20"
-              lightBg="#f1f8e9"
-              lightBorder="#a5d6a7"
-              itemLabel="sector"
-              addLabel="Agregar sector"
+              items={tercerAnillo} jefes={jefes} toast={toast}
+              collectionName="tercerAnillo"
+              title="3ER ANILLO"
+              icon="🔵"
+              accentColor="#283593"
+              darkColor="#1a237e"
+              lightBg="#e8eaf6"
+              lightBorder="#c5cae9"
+              itemLabel="puesto"
+              addLabel="Agregar puesto de 3er Anillo"
             />
-
-            <PanelSeccion
-              items={infanteria} jefes={jefes} toast={toast}
-              collectionName="infanteria"
-              title="CORTES CON INFANTERÍA"
-              icon="🚧"
-              accentColor="#c62828"
-              darkColor="#b71c1c"
-              lightBg="#fff5f5"
-              lightBorder="#ffcdd2"
-              itemLabel="corte"
-              addLabel="Agregar corte"
-              isRiver={ESTADIOS_RIVER.has(evento.estadio)}
-            />
-          </div>
+          )}
         </div>
       </>}
 
       {tab==='campo'&&(
         <CampoTab usuario={usuario} rol={rol} toast={toast}/>
+      )}
+
+      {tab==='jefes'&&rol!=='operador'&&(
+        <div style={{maxWidth:'760px',margin:'0 auto',padding:'16px 14px'}}>
+          <PanelJefes jefes={jefes} toast={toast}/>
+        </div>
       )}
 
       {tab==='admin'&&rol==='admin'&&(
