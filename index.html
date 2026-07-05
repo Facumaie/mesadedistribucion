@@ -895,10 +895,9 @@ function buildCampoPDF(operativo, asignaciones) {
         theme: 'grid',
         styles: ESTILOS,
         didParseCell: (data) => {
-          // Zebra: celda por medio con tinte suave (la fila 0 es el título del puesto)
+          // Zebra: celda por medio con tinte visible (la fila 0 es el título del puesto)
           if (data.section === 'body' && data.row.index > 0 && data.row.index % 2 === 0) {
-            if (!data.cell.styles.fillColor || data.cell.styles.fillColor === false)
-              data.cell.styles.fillColor = [243, 246, 251];
+            data.cell.styles.fillColor = [233, 238, 247];
           }
         },
         didDrawCell: (data) => {
