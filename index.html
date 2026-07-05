@@ -5088,7 +5088,10 @@ function App() {
     try { sessionStorage.removeItem('mesa-dist-usuario'); } catch(e) {}
   };
 
-  const [tab,setTab]           = useState('distribucion');
+  // En celular la vista predeterminada es Carga Operativa; en escritorio, Distribución Previa
+  const [tab,setTab]           = useState(() =>
+    (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 899px)').matches)
+      ? 'campo' : 'distribucion');
   const [jefes,setJefes]       = useState([]);
   const [qths,setQths]         = useState([]);
   const [motos,setMotos]       = useState([]);
