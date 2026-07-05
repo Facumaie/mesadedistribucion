@@ -3972,6 +3972,25 @@ function CampoTab({ usuario, rol, toast }) {
   (operativo.puestos || []).forEach(p => { if (!secciones.includes(p.seccion)) secciones.push(p.seccion); });
 
   const f = filtro.trim().toLowerCase();
+
+  // Búsqueda de EFECTIVOS por apellido o LP (¿dónde está fulano?)
+  const normB = (s) => (s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const qEf = filtro.trim();
+  let resultadosEf = [];
+  let efNoCargado = null;
+  if (qEf.length >= 3) {
+    const esLp = /^\d+$/.test(qEf);
+    const qq = normB(qEf);
+    resultadosEf = asigsConPuesto.filter(a => esLp
+      ? (a.lp || '').includes(qEf)
+      : (normB(a.apellido).includes(qq) || normB((a.apellido || '') + ' ' + (a.nombre || '')).includes(qq))
+    ).slice(0, 8);
+    if (!resultadosEf.length && esLp) {
+      const enNom = nomina ? nomina.get(qEf) : null;
+      const otro = lpEnOtros[qEf] || null;
+      if (otro || enNom) efNoCargado = { lp: qEf, nom: enNom, otro };
+    }
+  }
   const matchPuesto = (p) => {
     if (!f) return true;
     if ((p.nombre || '').toLowerCase().includes(f)) return true;
@@ -4140,22 +4159,40 @@ function CampoTab({ usuario, rol, toast }) {
         </div>
       ))}
 
+      {resultadosEf.length > 0 && (
+        <div style={{margin:'10px 12px 0',background:'#fff',border:'2px solid #1a3a6b',borderRadius:'12px',overflow:'hidden'}}>
+          <div style={{background:'#1a3a6b',color:'#fff',padding:'6px 12px',fontSize:'11px',fontWeight:'800',letterSpacing:'.4px'}}>👮 EFECTIVOS ENCONTRADOS ({resultadosEf.length})</div>
+          {resultadosEf.map(a => {
+            const pp = puestoPorPid[a.pid] || { nombre: a._puestoNombre || '?', seccion: '', celdas: 0 };
+            return (
+              <button key={a.pid + '_' + a.slot} onClick={() => setModal({ tipo:'detalle', asig:a, puesto:pp })}
+                style={{display:'block',width:'100%',textAlign:'left',background:'#fff',border:'none',borderBottom:'1px solid #eef1f6',padding:'9px 12px',cursor:'pointer'}}>
+                <span style={{fontWeight:'800',fontSize:'14px',color:'#222'}}>{a.apellido}{a.nombre ? ', ' + a.nombre : ''}</span>
+                <span style={{fontSize:'11px',color:'#888'}}> · {a.grado || ''} · LP {a.lp || '—'}</span>
+                <div style={{fontSize:'12px',fontWeight:'700',color:'#1a3a6b',marginTop:'2px'}}>
+                  📍 {pp.nombre}{pp.seccion ? <span style={{fontWeight:'500',color:'#888'}}> ({pp.seccion})</span> : null}
+                  {a.avisado ? ' ✅' : ''}{a._pendiente ? ' 🕐' : ''}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {efNoCargado && (
+        <div style={{margin:'10px 12px 0',background:'#fff8e1',border:'1px solid #ffe082',borderRadius:'12px',padding:'10px 12px',fontSize:'12px',color:'#5d4a00'}}>
+          {efNoCargado.nom
+            ? <><b>{efNoCargado.nom.apellido}, {efNoCargado.nom.nombre}</b> ({efNoCargado.nom.grado} · LP {efNoCargado.lp}) </>
+            : <><b>LP {efNoCargado.lp}</b> </>}
+          {efNoCargado.otro
+            ? <>— 🚨 hoy está afectado en <b>{efNoCargado.otro.estadio}</b>{efNoCargado.otro.puesto ? ' — ' + efNoCargado.otro.puesto : ''}.</>
+            : <>— no está cargado en este operativo.</>}
+        </div>
+      )}
+
       <div style={{display:'flex',gap:'8px',padding:'10px 12px 4px',alignItems:'stretch'}}>
-        {vista === 'carga' ? (
-          <input type="text" placeholder="🔍 Buscar puesto, jefe o LP..." value={filtro}
-            onChange={e => setFiltro(e.target.value)} className="campo-input" style={{margin:0,flex:1}}/>
-        ) : (
-          <div style={{flex:1,display:'flex',flexDirection:'column',gap:'4px',padding:'0 4px',justifyContent:'center'}}>
-            <label style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'12px',color:'#333',cursor:'pointer',userSelect:'none'}}>
-              <input type="checkbox" checked={soloFaltantes} onChange={e => setSoloFaltantes(e.target.checked)} style={{width:'17px',height:'17px'}}/>
-              Solo faltantes ({totalCeldas - totalCargados})
-            </label>
-            <label style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'12px',color:'#333',cursor:'pointer',userSelect:'none'}}>
-              <input type="checkbox" checked={ocultarAvisados} onChange={e => setOcultarAvisados(e.target.checked)} style={{width:'17px',height:'17px'}}/>
-              Ocultar avisados (✅ {totalAvisados}/{totalCargados})
-            </label>
-          </div>
-        )}
+        <input type="text" placeholder="🔍 Buscar efectivo, LP o puesto..." value={filtro}
+          onChange={e => setFiltro(e.target.value)} className="campo-input" style={{margin:0,flex:1}}/>
+        {filtro && <button className="campo-btn-sm" style={{background:'#78909c'}} onClick={() => setFiltro('')}>✕</button>}
         {(rol === 'admin' || rol === 'planificador') && <>
           <button className="campo-btn-sm" style={{background: vista === 'previa' ? '#4527a0' : '#455a64'}}
             onClick={() => setVista(v => v === 'carga' ? 'previa' : 'carga')}>
@@ -4237,6 +4274,16 @@ function CampoTab({ usuario, rol, toast }) {
           .sort((a, b) => (b.cargadoEn || '').localeCompare(a.cargadoEn || '')).slice(0, 5);
         return (
           <div style={{margin:'10px 12px'}}>
+            <div style={{display:'flex',gap:'16px',flexWrap:'wrap',margin:'0 0 10px',padding:'9px 12px',background:'#fff',border:'1px solid #dde3ee',borderRadius:'10px'}}>
+              <label style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'12px',color:'#333',cursor:'pointer',userSelect:'none'}}>
+                <input type="checkbox" checked={soloFaltantes} onChange={e => setSoloFaltantes(e.target.checked)} style={{width:'17px',height:'17px'}}/>
+                Solo faltantes ({totalCeldas - totalCargados})
+              </label>
+              <label style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'12px',color:'#333',cursor:'pointer',userSelect:'none'}}>
+                <input type="checkbox" checked={ocultarAvisados} onChange={e => setOcultarAvisados(e.target.checked)} style={{width:'17px',height:'17px'}}/>
+                Ocultar avisados (✅ {totalAvisados}/{totalCargados})
+              </label>
+            </div>
             {ultimas.length > 0 && !soloFaltantes && (
               <div style={{background:'#e8f0fe',border:'1px solid #c3d4f5',borderRadius:'10px',padding:'8px 12px',marginBottom:'10px'}}>
                 <div style={{fontSize:'10px',fontWeight:'800',color:'#1a3a6b',letterSpacing:'.5px',marginBottom:'4px'}}>⚡ ÚLTIMAS CARGAS</div>
@@ -4257,10 +4304,11 @@ function CampoTab({ usuario, rol, toast }) {
                 if (ocultarAvisados && a && a.avisado) return false;
                 return true;
               };
+              const visBase = allPts.filter(matchPuesto);
               const pts = (soloFaltantes || ocultarAvisados)
-                ? allPts.filter(p => { for (let i = 0; i < (p.celdas||0); i++) if (rowVisible(asigPorSlot[p.pid+'_s'+i] || null)) return true; return false; })
-                : allPts;
-              if ((soloFaltantes || ocultarAvisados) && pts.length === 0) return null;
+                ? visBase.filter(p => { for (let i = 0; i < (p.celdas||0); i++) if (rowVisible(asigPorSlot[p.pid+'_s'+i] || null)) return true; return false; })
+                : visBase;
+              if ((soloFaltantes || ocultarAvisados || f) && pts.length === 0) return null;
               return (
                 <div key={sec} style={{marginBottom:'12px'}}>
                   <div style={{background:'#1a3a6b',color:'#fff',padding:'8px 12px',borderRadius:'10px 10px 0 0',fontSize:'12px',fontWeight:'800',letterSpacing:'.3px',display:'flex',justifyContent:'space-between'}}>
