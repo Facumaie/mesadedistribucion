@@ -349,6 +349,7 @@ window.firebaseUtils = {
     usuarios:'mesa-dist-usuarios',       // usuarios de campo dados de alta por el admin
     operativos:'mesa-dist-operativos',   // operativos publicados para carga en campo
     nomina:'mesa-dist-nomina',           // nómina general chunkeada
+    config:'mesa-dist-config',           // preferencias (checklist obligatorio, etc.)
     // Colecciones POR SESIÓN (aisladas por pestaña/usuario)
     // Cada sesión trabaja sobre sus propios documentos de trabajo
     qths:`mesa-dist-qths--${SESSION_ID}`,
@@ -476,6 +477,31 @@ function rolDeUsuario(u) {
   if (!u) return null;
   if (ADMIN_LEGAJOS.has(String(u.legajo))) return 'admin';
   return u.rol || 'planificador'; // hardcodeados = planificador
+}
+
+// ── CACHE LOCAL DE USUARIOS (login sin señal tras el primer ingreso) ──
+const USUARIOS_CACHE_KEY = 'mesa-dist-usuarios-cache-v1';
+function cacheUsuarioLocal(u) {
+  try {
+    const c = JSON.parse(localStorage.getItem(USUARIOS_CACHE_KEY) || '{}');
+    c[String(u.legajo)] = u;
+    localStorage.setItem(USUARIOS_CACHE_KEY, JSON.stringify(c));
+  } catch(e) {}
+}
+function leerUsuarioCache(lp) {
+  try { return JSON.parse(localStorage.getItem(USUARIOS_CACHE_KEY) || '{}')[String(lp)] || null; }
+  catch(e) { return null; }
+}
+
+// ── LOG DE AUDITORÍA por operativo (estructura y quitas) ──────
+function logOperativo(operativoId, tipo, detalle, usuario) {
+  try {
+    const { db, collections } = window.firebaseUtils;
+    db.collection(collections.operativos).doc(operativoId).collection('log').add({
+      ts: new Date().toISOString(), tipo, detalle,
+      por: usuario ? { legajo: usuario.legajo, nombre: usuario.nombre } : null,
+    }).catch(() => {});
+  } catch(e) {}
 }
 
 // ── NÓMINA (chunked en Firestore + cache local) ────────────────
@@ -3319,7 +3345,7 @@ function HistorialTab({ historial, estadioNombre, onCargar, onVer, onEliminar, o
 // ── CARGA EN CAMPO · componentes ───────────────────────────────
 // ═══════════════════════════════════════════════════════════════
 
-function AsignarModal({ puesto, slot, nomina, asignaciones, onConfirmar, onClose, cadena, setCadena, toast }) {
+function AsignarModal({ puesto, slot, nomina, asignaciones, lpEnOtros = {}, onConfirmar, onClose, cadena, setCadena, toast }) {
   const [lp, setLp] = useState('');
   const [match, setMatch] = useState(null);
   const [resultados, setResultados] = useState([]);
@@ -3362,6 +3388,7 @@ function AsignarModal({ puesto, slot, nomina, asignaciones, onConfirmar, onClose
 
   const lpSel = match ? match.lp : (/^\d+$/.test(lp.trim()) ? lp.trim() : '');
   const yaAsignado = lpSel ? asignaciones.find(a => a.lp === lpSel) : null;
+  const enOtro = lpSel ? (lpEnOtros[lpSel] || null) : null;
 
   const confirmar = async () => {
     let ef;
@@ -3373,6 +3400,7 @@ function AsignarModal({ puesto, slot, nomina, asignaciones, onConfirmar, onClose
       ef = { lp: match.lp, grado: match.grado, apellido: match.apellido, nombre: match.nombre, tel: match.tel, enNomina: true };
     }
     if (yaAsignado && !confirm(`⚠️ El LP ${lpSel} ya está cargado en "${yaAsignado._puestoNombre || 'otro puesto'}".\n\n¿Cargarlo igual acá?`)) return;
+    if (enOtro && !confirm(`🚨 DOBLE AFECTACIÓN: el LP ${lpSel} ya está afectado HOY en ${enOtro.estadio}${enOtro.puesto ? ' (' + enOtro.puesto + ')' : ''}.\n\n¿Cargarlo igual acá?`)) return;
     setGuardando(true);
     await onConfirmar(ef); // el padre guarda/encola, avisa y decide el auto-avance
   };
@@ -3420,6 +3448,11 @@ function AsignarModal({ puesto, slot, nomina, asignaciones, onConfirmar, onClose
                 ⚠️ Ya cargado en: <b>{yaAsignado._puestoNombre || 'otro puesto'}</b>
               </div>
             )}
+            {enOtro && (
+              <div style={{marginTop:'8px',fontSize:'12px',color:'#fff',background:'#c62828',padding:'8px 10px',borderRadius:'8px',fontWeight:'700'}}>
+                🚨 DOBLE AFECTACIÓN: hoy ya figura en <b>{enOtro.estadio}</b>{enOtro.puesto ? ' — ' + enOtro.puesto : ''}
+              </div>
+            )}
           </>) : (<>
             <label className="campo-label">CARGA MANUAL (fuera de nómina)</label>
             <input type="text" inputMode="numeric" placeholder="LP (opcional)" value={lp} onChange={e => setLp(e.target.value.replace(/\D/g,''))} className="campo-input"/>
@@ -3462,6 +3495,7 @@ function DetalleAsigModal({ asig, puesto, operativoId, usuario, rol, onClose, on
       const { db, collections } = window.firebaseUtils;
       await db.collection(collections.operativos).doc(operativoId)
         .collection('asignaciones').doc(asig.pid + '_s' + asig.slot).delete();
+      logOperativo(operativoId, 'quitar', `${asig.apellido} (LP ${asig.lp || '—'}) de ${puesto.nombre}`, usuario);
       toast('✓ Asignación quitada', 'success');
       onClose();
     } catch (err) { toast('Error: ' + err.message, 'error'); }
@@ -3490,8 +3524,66 @@ function DetalleAsigModal({ asig, puesto, operativoId, usuario, rol, onClose, on
               {asig.cargadoEn && ' · ' + new Date(asig.cargadoEn).toLocaleString('es-AR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}
             </div>
           )}
+          {asig.avisado && (
+            <div style={{marginTop:'8px',fontSize:'11px',color:'#1b5e20',background:'#e8f5e9',padding:'8px 10px',borderRadius:'8px'}}>
+              📢 QTH y función avisados por <b>{asig.avisado.nombre}</b>
+              {asig.avisado.ts && ' · ' + new Date(asig.avisado.ts).toLocaleString('es-AR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}
+            </div>
+          )}
           {puedeQuitar && <button className="campo-btn-danger" onClick={quitar}>🗑 Quitar asignación</button>}
           <button className="campo-btn-ghost" onClick={onClose}>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditarJefeModal({ puesto, nomina, onGuardar, onClose, toast }) {
+  const [datos, setDatos] = useState({
+    jefeRango: puesto.jefeRango || '', jefeNombre: puesto.jefeNombre || '', jefeTel: puesto.jefeTel || '',
+  });
+  const [lpBusca, setLpBusca] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const inpRef = useRef(null);
+  useEffect(() => { setTimeout(() => inpRef.current && inpRef.current.focus(), 60); }, []);
+
+  const buscarLp = (v) => {
+    const d = v.replace(/\D/g, '');
+    setLpBusca(d);
+    const ef = d ? nomina.get(d) : null;
+    if (ef) setDatos({ jefeRango: ef.grado || '', jefeNombre: ef.apellido + (ef.nombre ? ', ' + ef.nombre : ''), jefeTel: ef.tel || '' });
+  };
+
+  const guardar = async () => {
+    setGuardando(true);
+    await onGuardar({
+      jefeRango: datos.jefeRango.trim(), jefeNombre: datos.jefeNombre.trim(), jefeTel: datos.jefeTel.trim(),
+    });
+    setGuardando(false);
+  };
+
+  return (
+    <div className="campo-modal-bg" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="campo-modal">
+        <div className="campo-modal-head">
+          <div style={{fontSize:'11px',opacity:.8}}>{puesto.seccion}</div>
+          <div style={{fontWeight:'800',fontSize:'15px'}}>👤 Jefe de sector — {puesto.nombre}</div>
+        </div>
+        <div style={{padding:'16px'}}>
+          <label className="campo-label">BUSCAR EN NÓMINA POR LP (opcional)</label>
+          <input ref={inpRef} type="text" inputMode="numeric" placeholder="Autocompleta grado, nombre y teléfono"
+            value={lpBusca} onChange={e => buscarLp(e.target.value)} className="campo-input" style={{marginTop:0}}/>
+          <label className="campo-label" style={{marginTop:'12px'}}>JERARQUÍA</label>
+          <input type="text" value={datos.jefeRango} onChange={e => setDatos(d => ({...d, jefeRango: e.target.value}))} className="campo-input" style={{marginTop:0}}/>
+          <label className="campo-label" style={{marginTop:'12px'}}>APELLIDO Y NOMBRE</label>
+          <input type="text" value={datos.jefeNombre} onChange={e => setDatos(d => ({...d, jefeNombre: e.target.value}))} className="campo-input" style={{marginTop:0}}/>
+          <label className="campo-label" style={{marginTop:'12px'}}>TELÉFONO</label>
+          <input type="text" inputMode="tel" value={datos.jefeTel} onChange={e => setDatos(d => ({...d, jefeTel: e.target.value}))} className="campo-input" style={{marginTop:0}}/>
+          <button className="campo-btn-main" disabled={guardando} onClick={guardar}>
+            {guardando ? '⏳ Guardando...' : '✓ GUARDAR JEFE'}
+          </button>
+          <div style={{fontSize:'11px',color:'#888',marginTop:'8px',textAlign:'center'}}>Dejá los campos vacíos para quitar el jefe del puesto.</div>
+          <button className="campo-btn-ghost" onClick={onClose}>Cancelar</button>
         </div>
       </div>
     </div>
@@ -3559,6 +3651,10 @@ function CampoTab({ usuario, rol, toast }) {
   const [rebotados, setRebotados] = useState([]);    // pendientes que perdieron la celda al sincronizar
   const [online, setOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [cadena, setCadena] = useState(true);        // carga en cadena (auto-avance)
+  const [vista, setVista] = useState('carga');       // 'carga' | 'previa' (monitor de supervisor)
+  const [soloFaltantes, setSoloFaltantes] = useState(false);
+  const [ocultarAvisados, setOcultarAvisados] = useState(false);
+  const [configCampo, setConfigCampo] = useState({});
   const pendRef = useRef([]);
   const syncRef = useRef(false);
   const { db, collections } = window.firebaseUtils;
@@ -3571,6 +3667,7 @@ function CampoTab({ usuario, rol, toast }) {
     if (!opId) { setPendientes([]); setRebotados([]); return; }
     try { setPendientes(JSON.parse(localStorage.getItem(queueKey(opId)) || '[]')); } catch(e) { setPendientes([]); }
     setRebotados([]);
+    setVista('carga'); setSoloFaltantes(false); setOcultarAvisados(false); setFiltro('');
   }, [opId]);
 
   const quitarPendiente = (pid, slot) => {
@@ -3666,6 +3763,42 @@ function CampoTab({ usuario, rol, toast }) {
     });
   }, [asigs]);
 
+  // Colas huérfanas: cargas pendientes de OTROS operativos (el operador cerró la app
+  // sin señal y nunca volvió a entrar a ese operativo). Se sincronizan al abrir la solapa.
+  useEffect(() => {
+    const syncHuerfanas = async () => {
+      if (!navigator.onLine) return;
+      const claves = [];
+      for (let k = 0; k < localStorage.length; k++) {
+        const key = localStorage.key(k);
+        if (key && key.startsWith('campo-queue-')) claves.push(key);
+      }
+      for (const key of claves) {
+        if (opId && key === queueKey(opId)) continue; // la del operativo actual la maneja syncPendientes
+        let items = [];
+        try { items = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) {}
+        if (!items.length) { localStorage.removeItem(key); continue; }
+        const restantes = [];
+        let subidas = 0, rebot = 0;
+        for (const it of items) {
+          if (!it._opId) { continue; } // sin destino conocido: se descarta
+          try { await withTimeout(escribirAsignacion(it), 8000); subidas++; }
+          catch (err) {
+            if (String(err.message || '').startsWith('OCUPADO:')) rebot++;
+            else restantes.push(it); // sigue sin señal: queda para el próximo intento
+          }
+        }
+        if (restantes.length) localStorage.setItem(key, JSON.stringify(restantes));
+        else localStorage.removeItem(key);
+        if (subidas) toast(`✓ ${subidas} carga(s) pendiente(s) de otro operativo sincronizadas`, 'success');
+        if (rebot) toast(`⚠️ ${rebot} carga(s) de otro operativo rebotaron (la celda ya estaba ocupada)`, 'error');
+      }
+    };
+    syncHuerfanas();
+    window.addEventListener('online', syncHuerfanas);
+    return () => window.removeEventListener('online', syncHuerfanas);
+  }, []);
+
   // Wake lock: que el teléfono no se bloquee mientras se carga
   useEffect(() => {
     if (!opId || !('wakeLock' in navigator)) return;
@@ -3686,6 +3819,13 @@ function CampoTab({ usuario, rol, toast }) {
     return u;
   }, []);
 
+  // Preferencias de campo (checklist obligatorio, etc.)
+  useEffect(() => {
+    const u = db.collection(collections.config).doc('campo')
+      .onSnapshot(d => setConfigCampo(d.exists ? d.data() : {}), () => {});
+    return u;
+  }, []);
+
   // Nómina (una vez)
   useEffect(() => {
     let vivo = true;
@@ -3702,6 +3842,22 @@ function CampoTab({ usuario, rol, toast }) {
         err => toast('Firebase asignaciones: ' + err.message, 'error'));
     return u;
   }, [opId]);
+
+  // Doble afectación: asignaciones de OTROS operativos abiertos del mismo día
+  const [asigsOtros, setAsigsOtros] = useState({}); // { opId: [asignaciones] }
+  const _opSel = operativos.find(o => o.id === opId);
+  const otrosKey = (opId && _opSel)
+    ? operativos.filter(o => o.id !== opId && o.estado === 'abierto' && o.fecha === _opSel.fecha).map(o => o.id).sort().join(',')
+    : '';
+  useEffect(() => {
+    setAsigsOtros({});
+    if (!otrosKey) return;
+    const unsubs = otrosKey.split(',').map(id =>
+      db.collection(collections.operativos).doc(id).collection('asignaciones')
+        .onSnapshot(s => setAsigsOtros(prev => ({ ...prev, [id]: s.docs.map(d => d.data()) })), () => {})
+    );
+    return () => unsubs.forEach(u => u());
+  }, [opId, otrosKey]);
 
   const operativo = operativos.find(o => o.id === opId) || null;
 
@@ -3759,6 +3915,15 @@ function CampoTab({ usuario, rol, toast }) {
   const puestoPorPid = {};
   (operativo.puestos || []).forEach(p => { puestoPorPid[p.pid] = p; });
   const asigsConPuesto = asigsMerged.map(a => ({ ...a, _puestoNombre: (puestoPorPid[a.pid] || {}).nombre || a._puestoNombre }));
+  const lpEnOtros = {};
+  Object.entries(asigsOtros).forEach(([oid, arr]) => {
+    const op = operativos.find(o => o.id === oid);
+    const ppo = {};
+    ((op && op.puestos) || []).forEach(p => { ppo[p.pid] = p; });
+    (arr || []).forEach(a => {
+      if (a.lp && !lpEnOtros[a.lp]) lpEnOtros[a.lp] = { estadio: op ? op.estadio : '', puesto: (ppo[a.pid] || {}).nombre || '' };
+    });
+  });
   const totalCeldas = (operativo.puestos || []).reduce((s, p) => s + (p.celdas || 0), 0);
   const totalCargados = asigsMerged.length;
 
@@ -3786,6 +3951,22 @@ function CampoTab({ usuario, rol, toast }) {
       else { setModal(null); toast('🎉 No quedan celdas libres en el operativo', 'success'); }
     } else setModal(null);
   };
+
+  // Checklist del supervisor: marcar a quién ya se le dio su QTH y función
+  const toggleAvisado = async (a) => {
+    if (a._pendiente) { toast('Esa carga todavía no sincronizó — esperá la señal.', 'error'); return; }
+    try {
+      const ref = db.collection(collections.operativos).doc(opId)
+        .collection('asignaciones').doc(a.pid + '_s' + a.slot);
+      await ref.update({
+        avisado: a.avisado
+          ? firebase.firestore.FieldValue.delete()
+          : { legajo: usuario.legajo, nombre: usuario.nombre, ts: new Date().toISOString() },
+      });
+    } catch (err) { toast('Error: ' + err.message, 'error'); }
+  };
+
+  const totalAvisados = asigsMerged.filter(a => a.avisado).length;
 
   const secciones = [];
   (operativo.puestos || []).forEach(p => { if (!secciones.includes(p.seccion)) secciones.push(p.seccion); });
@@ -3828,6 +4009,7 @@ function CampoTab({ usuario, rol, toast }) {
         puestos[i] = { ...puestos[i], celdas: actual + delta };
         tx.update(ref, { puestos, ultimaModPuestos: { legajo: usuario.legajo, nombre: usuario.nombre, ts: new Date().toISOString() } });
       });
+      logOperativo(opId, delta > 0 ? 'celda+' : 'celda-', `${p.nombre}: ${delta > 0 ? '+1 celda' : '−1 celda'}`, usuario);
     } catch (err) { toast('Error: ' + err.message, 'error'); }
   };
 
@@ -3850,7 +4032,28 @@ function CampoTab({ usuario, rol, toast }) {
         puestos.sort((a, b) => (a.orden || 0) - (b.orden || 0));
         tx.update(ref, { puestos });
       });
+      logOperativo(opId, 'puesto+', `${datos.nombre} (${seccion}, ${datos.celdas} celda${datos.celdas > 1 ? 's' : ''})`, usuario);
       toast('✓ Puesto agregado', 'success');
+    } catch (err) { toast('Error: ' + err.message, 'error'); }
+  };
+
+  const editarJefe = async (p, datos) => {
+    try {
+      const ref = db.collection(collections.operativos).doc(opId);
+      await db.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) throw new Error('Operativo no encontrado.');
+        const puestos = (snap.data().puestos || []).slice();
+        const i = puestos.findIndex(x => x.pid === p.pid);
+        if (i === -1) throw new Error('Puesto no encontrado.');
+        puestos[i] = { ...puestos[i],
+          jefeRango: datos.jefeRango || null,
+          jefeNombre: datos.jefeNombre || null,
+          jefeTel: datos.jefeTel || null };
+        tx.update(ref, { puestos, ultimaModPuestos: { legajo: usuario.legajo, nombre: usuario.nombre, ts: new Date().toISOString() } });
+      });
+      logOperativo(opId, 'jefe', `${p.nombre}: Jefe → ${datos.jefeNombre ? [datos.jefeRango, datos.jefeNombre].filter(Boolean).join(' ') : '(sin jefe)'}`, usuario);
+      toast('✓ Jefe de sector actualizado', 'success');
     } catch (err) { toast('Error: ' + err.message, 'error'); }
   };
 
@@ -3866,6 +4069,7 @@ function CampoTab({ usuario, rol, toast }) {
         const puestos = (snap.data().puestos || []).filter(x => x.pid !== p.pid);
         tx.update(ref, { puestos, ultimaModPuestos: { legajo: usuario.legajo, nombre: usuario.nombre, ts: new Date().toISOString() } });
       });
+      logOperativo(opId, 'puesto-', `${p.nombre} (${p.seccion})`, usuario);
       toast('✓ Puesto eliminado', 'success');
     } catch (err) { toast('Error: ' + err.message, 'error'); }
   };
@@ -3873,7 +4077,13 @@ function CampoTab({ usuario, rol, toast }) {
   const finalizar = async () => {
     if (pendientes.length > 0) { toast(`Hay ${pendientes.length} cargas sin sincronizar. Esperá a tener señal antes de cerrar.`, 'error'); return; }
     const faltan = totalCeldas - asigsMerged.length;
-    if (!confirm(`¿Finalizar la carga y cerrar el operativo?${faltan > 0 ? '\n\n⚠️ Quedan ' + faltan + ' celdas sin cubrir.' : '\n\nCarga completa ✓'}\n\nSe genera el PDF para difundir.`)) return;
+    const sinAvisar = totalCargados - totalAvisados;
+    if (configCampo.exigirAvisados && sinAvisar > 0) {
+      toast(`Checklist incompleto: faltan avisar ${sinAvisar} efectivo${sinAvisar > 1 ? 's' : ''} (✅). Es obligatorio para cerrar (configurable en Admin).`, 'error');
+      return;
+    }
+    const avisoChk = sinAvisar > 0 ? `\n⚠️ ${sinAvisar} efectivo${sinAvisar > 1 ? 's' : ''} sin marcar como avisado${sinAvisar > 1 ? 's' : ''} (✅).` : '';
+    if (!confirm(`¿Finalizar la carga y cerrar el operativo?${faltan > 0 ? '\n\n⚠️ Quedan ' + faltan + ' celdas sin cubrir.' : '\n\nCarga completa ✓'}${avisoChk}\n\nSe genera el PDF para difundir.`)) return;
     try {
       await db.collection(collections.operativos).doc(opId).update({
         estado: 'cerrado',
@@ -3930,17 +4140,34 @@ function CampoTab({ usuario, rol, toast }) {
         </div>
       ))}
 
-      <div style={{display:'flex',gap:'8px',padding:'10px 12px 4px'}}>
-        <input type="text" placeholder="🔍 Buscar puesto, jefe o LP..." value={filtro}
-          onChange={e => setFiltro(e.target.value)} className="campo-input" style={{margin:0,flex:1}}/>
+      <div style={{display:'flex',gap:'8px',padding:'10px 12px 4px',alignItems:'stretch'}}>
+        {vista === 'carga' ? (
+          <input type="text" placeholder="🔍 Buscar puesto, jefe o LP..." value={filtro}
+            onChange={e => setFiltro(e.target.value)} className="campo-input" style={{margin:0,flex:1}}/>
+        ) : (
+          <div style={{flex:1,display:'flex',flexDirection:'column',gap:'4px',padding:'0 4px',justifyContent:'center'}}>
+            <label style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'12px',color:'#333',cursor:'pointer',userSelect:'none'}}>
+              <input type="checkbox" checked={soloFaltantes} onChange={e => setSoloFaltantes(e.target.checked)} style={{width:'17px',height:'17px'}}/>
+              Solo faltantes ({totalCeldas - totalCargados})
+            </label>
+            <label style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'12px',color:'#333',cursor:'pointer',userSelect:'none'}}>
+              <input type="checkbox" checked={ocultarAvisados} onChange={e => setOcultarAvisados(e.target.checked)} style={{width:'17px',height:'17px'}}/>
+              Ocultar avisados (✅ {totalAvisados}/{totalCargados})
+            </label>
+          </div>
+        )}
         {(rol === 'admin' || rol === 'planificador') && <>
+          <button className="campo-btn-sm" style={{background: vista === 'previa' ? '#4527a0' : '#455a64'}}
+            onClick={() => setVista(v => v === 'carga' ? 'previa' : 'carga')}>
+            {vista === 'carga' ? '👁 Vista' : '✏️ Carga'}
+          </button>
           <button className="campo-btn-sm" title="Descargar PDF" onClick={() => generarPDF(false)}>📄</button>
           <button className="campo-btn-sm" style={{background:'#1b5e20'}} title="Compartir PDF por WhatsApp" onClick={() => generarPDF(true)}>📤</button>
         </>}
       </div>
       {!abierto && <div className="campo-aviso" style={{margin:'8px 12px'}}>Operativo cerrado — solo lectura{rol==='admin' ? ' (podés reabrirlo desde Admin)' : ''}.</div>}
 
-      {secciones.map(sec => {
+      {vista === 'carga' && secciones.map(sec => {
         const pts = (operativo.puestos || []).filter(p => p.seccion === sec).filter(matchPuesto);
         if (!pts.length && f) return null;
         const allPts = (operativo.puestos || []).filter(p => p.seccion === sec);
@@ -3970,8 +4197,10 @@ function CampoTab({ usuario, rol, toast }) {
                       {abierto && <>
                         <button className="campo-mini-btn" title="Quitar una celda" onClick={() => cambiarCeldas(p, -1)}>−</button>
                         <button className="campo-mini-btn" title="Agregar una celda" onClick={() => cambiarCeldas(p, 1)}>＋</button>
-                        {(rol === 'admin' || rol === 'planificador') &&
-                          <button className="campo-mini-btn" style={{color:'#b71c1c'}} title="Eliminar puesto" onClick={() => eliminarPuesto(p)}>🗑</button>}
+                        {(rol === 'admin' || rol === 'planificador') && <>
+                          <button className="campo-mini-btn" title="Editar jefe de sector" onClick={() => setModal({ tipo:'jefe', puesto:p })}>✏️</button>
+                          <button className="campo-mini-btn" style={{color:'#b71c1c'}} title="Eliminar puesto" onClick={() => eliminarPuesto(p)}>🗑</button>
+                        </>}
                       </>}
                     </div>
                   </div>
@@ -4001,6 +4230,80 @@ function CampoTab({ usuario, rol, toast }) {
         );
       })}
 
+      {/* ── VISTA PREVIA EN VIVO (monitor de supervisor) ── */}
+      {vista === 'previa' && (() => {
+        const hora = (iso) => iso ? new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '';
+        const ultimas = asigsMerged.filter(a => a.cargadoEn)
+          .sort((a, b) => (b.cargadoEn || '').localeCompare(a.cargadoEn || '')).slice(0, 5);
+        return (
+          <div style={{margin:'10px 12px'}}>
+            {ultimas.length > 0 && !soloFaltantes && (
+              <div style={{background:'#e8f0fe',border:'1px solid #c3d4f5',borderRadius:'10px',padding:'8px 12px',marginBottom:'10px'}}>
+                <div style={{fontSize:'10px',fontWeight:'800',color:'#1a3a6b',letterSpacing:'.5px',marginBottom:'4px'}}>⚡ ÚLTIMAS CARGAS</div>
+                {ultimas.map(a => (
+                  <div key={a.pid + '_' + a.slot} style={{fontSize:'12px',color:'#333',padding:'2px 0'}}>
+                    <b>{a.apellido}</b> → {(puestoPorPid[a.pid] || {}).nombre || '?'}
+                    <span style={{color:'#888'}}> · {hora(a.cargadoEn)}{a._pendiente ? ' · 🕐' : ''}{a.cargadoPor ? ' · por ' + a.cargadoPor.nombre : ''}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {secciones.map(sec => {
+              const allPts = (operativo.puestos || []).filter(p => p.seccion === sec);
+              const secTot = allPts.reduce((s, p) => s + (p.celdas || 0), 0);
+              const secCarg = allPts.reduce((s, p) => { let n = 0; for (let i = 0; i < (p.celdas||0); i++) if (asigPorSlot[p.pid+'_s'+i]) n++; return s + n; }, 0);
+              const rowVisible = (a) => {
+                if (soloFaltantes && a) return false;
+                if (ocultarAvisados && a && a.avisado) return false;
+                return true;
+              };
+              const pts = (soloFaltantes || ocultarAvisados)
+                ? allPts.filter(p => { for (let i = 0; i < (p.celdas||0); i++) if (rowVisible(asigPorSlot[p.pid+'_s'+i] || null)) return true; return false; })
+                : allPts;
+              if ((soloFaltantes || ocultarAvisados) && pts.length === 0) return null;
+              return (
+                <div key={sec} style={{marginBottom:'12px'}}>
+                  <div style={{background:'#1a3a6b',color:'#fff',padding:'8px 12px',borderRadius:'10px 10px 0 0',fontSize:'12px',fontWeight:'800',letterSpacing:'.3px',display:'flex',justifyContent:'space-between'}}>
+                    <span>{sec}</span>
+                    <span style={{color: secCarg >= secTot ? '#a5d6a7' : '#ffd54f'}}>{secCarg}/{secTot}</span>
+                  </div>
+                  <div style={{background:'#fff',border:'1px solid #dde3ee',borderTop:'none',borderRadius:'0 0 10px 10px',overflow:'hidden'}}>
+                    {pts.map(p => (
+                      <div key={p.pid} style={{borderBottom:'1px solid #eef1f6'}}>
+                        <div style={{background:'#eef2f9',padding:'6px 12px',fontSize:'12px',fontWeight:'800',color:'#1a3a6b',display:'flex',justifyContent:'space-between',gap:'8px',flexWrap:'wrap'}}>
+                          <span>{p.nombre}{p.tipo ? '  [' + p.tipo + ']' : ''}</span>
+                          {p.jefeNombre && <span style={{fontWeight:'600',color:'#555'}}>👤 {[p.jefeRango, p.jefeNombre].filter(Boolean).join(' ')}</span>}
+                        </div>
+                        {Array.from({length: p.celdas || 0}, (_, i) => {
+                          const a = asigPorSlot[p.pid + '_s' + i];
+                          if (a && !rowVisible(a)) return null;
+                          return a ? (
+                            <div key={i} style={{display:'flex',gap:'8px',padding:'5px 12px',fontSize:'12px',color:'#222',alignItems:'center',background: a._pendiente ? '#fffbea' : (a.avisado ? '#f0f9f0' : '#fff')}}>
+                              <button onClick={() => toggleAvisado(a)} title={a.avisado ? `Avisado por ${a.avisado.nombre}` : 'Marcar como avisado'}
+                                style={{width:'30px',height:'30px',flexShrink:0,border:'none',background:'transparent',fontSize:'17px',cursor:'pointer',padding:0,opacity: a._pendiente ? .35 : 1}}>
+                                {a.avisado ? '✅' : '⭕'}
+                              </button>
+                              <span style={{color:'#999',width:'16px',flexShrink:0}}>{i + 1}</span>
+                              <span style={{fontFamily:'monospace',width:'52px',flexShrink:0}}>{a.lp || '—'}</span>
+                              <span style={{flex:1,minWidth:0}}><b>{a.apellido}</b>{a.nombre ? ', ' + a.nombre : ''} <span style={{color:'#888'}}>· {a.grado || ''}</span>{a._pendiente ? ' 🕐' : ''}</span>
+                              {a.tel && <span style={{color:'#888',flexShrink:0}}>{a.tel}</span>}
+                            </div>
+                          ) : (
+                            <div key={i} style={{display:'flex',gap:'8px',padding:'5px 12px',fontSize:'12px',alignItems:'baseline',background:'#fff5f5'}}>
+                              <span style={{color:'#999',width:'16px',flexShrink:0}}>{i + 1}</span>
+                              <span style={{color:'#c62828',fontStyle:'italic',fontWeight:'600'}}>— sin cubrir —</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
       {abierto && (rol === 'admin' || rol === 'planificador') && (
         <div style={{padding:'14px 12px 30px'}}>
           <button className="campo-btn-main" style={{background:'#b71c1c'}} onClick={finalizar}>
@@ -4008,6 +4311,7 @@ function CampoTab({ usuario, rol, toast }) {
           </button>
         </div>
       )}
+
       <div style={{height:'30px'}}/>
 
       {modal && modal.tipo === 'nuevoPuesto' && (
@@ -4015,9 +4319,14 @@ function CampoTab({ usuario, rol, toast }) {
           onGuardar={async (datos) => { await agregarPuesto(modal.seccion, datos); setModal(null); }}
           onClose={() => setModal(null)} toast={toast}/>
       )}
+      {modal && modal.tipo === 'jefe' && (
+        <EditarJefeModal puesto={modal.puesto} nomina={nomina || new Map()}
+          onGuardar={async (d) => { await editarJefe(modal.puesto, d); setModal(null); }}
+          onClose={() => setModal(null)} toast={toast}/>
+      )}
       {modal && modal.tipo === 'asignar' && nomina && (
         <AsignarModal puesto={modal.puesto} slot={modal.slot}
-          nomina={nomina} asignaciones={asigsConPuesto}
+          nomina={nomina} asignaciones={asigsConPuesto} lpEnOtros={lpEnOtros}
           cadena={cadena} setCadena={setCadena}
           onConfirmar={(ef) => handleConfirmarAsig(modal.puesto, modal.slot, ef)}
           onClose={() => setModal(null)} toast={toast}/>
@@ -4036,6 +4345,9 @@ function AdminTab({ usuario, toast }) {
   const [usuarios, setUsuarios] = useState([]);
   const [filtroU, setFiltroU] = useState('');
   const [verFijos, setVerFijos] = useState(false);
+  const [config, setConfig] = useState({});
+  const [logVer, setLogVer] = useState(null);
+  const [logItems, setLogItems] = useState([]);
   const [form, setForm] = useState({ legajo:'', nombre:'', jerarquia:'', password:'', rol:'operador' });
   const [nominaMeta, setNominaMeta] = useState(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -4050,7 +4362,9 @@ function AdminTab({ usuario, toast }) {
       .onSnapshot(d => setNominaMeta(d.exists ? d.data() : null), () => {});
     const u3 = db.collection(collections.operativos).orderBy('creadoEn', 'desc').limit(25)
       .onSnapshot(s => setOperativos(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
-    return () => { u1(); u2(); u3(); };
+    const u4 = db.collection(collections.config).doc('campo')
+      .onSnapshot(d => setConfig(d.exists ? d.data() : {}), () => {});
+    return () => { u1(); u2(); u3(); u4(); };
   }, []);
 
   const altaUsuario = async () => {
@@ -4092,6 +4406,38 @@ function AdminTab({ usuario, toast }) {
       toast(`✓ Nómina actualizada: ${res.count.toLocaleString('es-AR')} efectivos`, 'success');
     } catch (err) { toast('Error nómina: ' + err.message, 'error'); }
     finally { setSubiendo(false); if (fileRef.current) fileRef.current.value = ''; }
+  };
+
+  const importarFijos = async () => {
+    const faltantes = Object.values(USUARIOS_AUTORIZADOS)
+      .filter(u => !usuarios.find(x => String(x.legajo) === String(u.legajo)));
+    if (!faltantes.length) { toast('Todos los usuarios fijos ya están importados.', 'info'); return; }
+    if (!confirm(`Se van a importar ${faltantes.length} usuarios fijos a Firestore.\n\nDespués vas a poder editarlos, deshabilitarlos o cambiarles la clave desde este panel (la copia de Firestore tiene prioridad al ingresar).\n\n¿Continuar?`)) return;
+    try {
+      const ops = faltantes.map(u => ({ type: 'set', ref: db.collection(collections.usuarios).doc(String(u.legajo)), data: {
+        legajo: String(u.legajo), nombre: u.nombre, jerarquia: u.jerarquia || '', password: u.password || '',
+        rol: 'planificador', activo: true, origen: 'sistema',
+        creadoPor: { legajo: usuario.legajo, nombre: usuario.nombre }, creadoEn: new Date().toISOString(),
+      }}));
+      await commitInBatches(ops);
+      toast(`✓ ${faltantes.length} usuarios fijos importados`, 'success');
+    } catch (err) { toast('Error: ' + err.message, 'error'); }
+  };
+
+  const toggleExigirAvisados = async () => {
+    try {
+      await db.collection(collections.config).doc('campo').set({ exigirAvisados: !config.exigirAvisados }, { merge: true });
+    } catch (err) { toast('Error: ' + err.message, 'error'); }
+  };
+
+  const verLog = async (o) => {
+    if (logVer === o.id) { setLogVer(null); setLogItems([]); return; }
+    try {
+      const snap = await db.collection(collections.operativos).doc(o.id)
+        .collection('log').orderBy('ts', 'desc').limit(100).get();
+      setLogItems(snap.docs.map(d => d.data()));
+      setLogVer(o.id);
+    } catch (err) { toast('Error: ' + err.message, 'error'); }
   };
 
   const toggleOperativo = async (o) => {
@@ -4179,7 +4525,7 @@ function AdminTab({ usuario, toast }) {
                       {lista.map(u => (
                         <tr key={u.id} style={u.activo === false ? {opacity:.5} : null}>
                           <td style={{fontFamily:'monospace'}}>{u.legajo}</td>
-                          <td style={{fontWeight:'600'}}>{u.nombre}</td>
+                          <td style={{fontWeight:'600'}}>{u.nombre}{u.origen === 'sistema' && <span className="badge" style={{background:'#546e7a',color:'#fff',marginLeft:'6px',fontSize:'9px'}}>SISTEMA</span>}</td>
                           <td>{u.jerarquia || '—'}</td>
                           <td>{u.rol === 'planificador' ? '🗂 Planificador' : '📱 Operador'}</td>
                           <td style={{fontFamily:'monospace'}}>{u.password}</td>
@@ -4201,16 +4547,21 @@ function AdminTab({ usuario, toast }) {
 
               {/* Usuarios fijos del sistema (definidos en el código) */}
               {(() => {
-                const fijos = Object.values(USUARIOS_AUTORIZADOS).filter(pasa);
+                const sinImportar = Object.values(USUARIOS_AUTORIZADOS)
+                  .filter(u => !usuarios.find(x => String(x.legajo) === String(u.legajo)));
+                const fijos = sinImportar.filter(pasa);
                 const mostrar = verFijos || !!fq;
                 return (<>
-                  <div style={{display:'flex',alignItems:'center',gap:'8px',margin:'16px 0 6px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'8px',margin:'16px 0 6px',flexWrap:'wrap'}}>
                     <div style={{fontSize:'12px',fontWeight:'800',color:'#1a3a6b'}}>
-                      FIJOS DEL SISTEMA ({fijos.length}{fq ? ' de ' + Object.keys(USUARIOS_AUTORIZADOS).length : ''})
+                      FIJOS DEL SISTEMA SIN IMPORTAR ({fijos.length}{fq ? ' de ' + sinImportar.length : ''})
                     </div>
-                    {!fq && <button className="btn btn-sm btn-secondary" onClick={() => setVerFijos(v => !v)}>{verFijos ? 'Ocultar' : 'Ver'}</button>}
+                    {!fq && sinImportar.length > 0 && <button className="btn btn-sm btn-secondary" onClick={() => setVerFijos(v => !v)}>{verFijos ? 'Ocultar' : 'Ver'}</button>}
+                    {sinImportar.length > 0 && <button className="btn btn-sm btn-primary" onClick={importarFijos}>⬆ Importar a Firestore ({sinImportar.length})</button>}
                   </div>
-                  <div style={{fontSize:'11px',color:'#888',marginBottom:'6px'}}>Definidos en el código de la app. Para modificarlos hay que editar el archivo y volver a deployar.</div>
+                  {sinImportar.length === 0
+                    ? <div style={{fontSize:'12px',color:'#2e7d32',marginBottom:'6px'}}>✓ Todos los usuarios fijos ya fueron importados y se gestionan desde la tabla de arriba.</div>
+                    : <div style={{fontSize:'11px',color:'#888',marginBottom:'6px'}}>Definidos en el código de la app. Importalos a Firestore para poder editarlos, deshabilitarlos o cambiarles la clave desde este panel (la copia de Firestore tiene prioridad al ingresar).</div>}
                   {mostrar && (fijos.length === 0
                     ? <div className="empty-state" style={{padding:'10px'}}>Sin coincidencias.</div>
                     : <div style={{overflowX:'auto'}}>
@@ -4237,6 +4588,18 @@ function AdminTab({ usuario, toast }) {
         </div>
       </div>
 
+      {/* PREFERENCIAS DE CAMPO */}
+      <div className="card" style={{marginTop:'16px'}}>
+        <div className="card-header"><span>⚙️ PREFERENCIAS DE CAMPO</span></div>
+        <div className="card-body">
+          <label style={{display:'flex',alignItems:'center',gap:'10px',fontSize:'13px',color:'#333',cursor:'pointer',userSelect:'none'}}>
+            <input type="checkbox" checked={!!config.exigirAvisados} onChange={toggleExigirAvisados} style={{width:'18px',height:'18px'}}/>
+            <span><b>Exigir checklist completo para finalizar</b> — no se puede cerrar un operativo hasta que todos los efectivos cargados estén marcados como avisados (✅) en la Vista.</span>
+          </label>
+          <div style={{fontSize:'11px',color:'#888',marginTop:'6px'}}>Si está desactivado, al finalizar solo se muestra una advertencia con la cantidad de efectivos sin avisar.</div>
+        </div>
+      </div>
+
       {/* OPERATIVOS */}
       <div className="card" style={{marginTop:'16px'}}>
         <div className="card-header"><span>📡 OPERATIVOS PUBLICADOS</span>
@@ -4254,8 +4617,24 @@ function AdminTab({ usuario, toast }) {
                 </div>
               </div>
               <span className="badge" style={{background: o.estado==='abierto' ? '#2e7d32' : '#9e9e9e', color:'#fff'}}>{o.estado === 'abierto' ? 'ABIERTO' : 'CERRADO'}</span>
+              <button className="btn btn-sm btn-secondary" onClick={() => verLog(o)}>{logVer === o.id ? '📜 Ocultar' : '📜 Log'}</button>
               <button className="btn btn-sm btn-secondary" onClick={() => toggleOperativo(o)}>{o.estado === 'abierto' ? '⏸ Cerrar' : '▶ Reabrir'}</button>
               <button className="btn btn-sm btn-danger" onClick={() => borrarOperativo(o)}>🗑</button>
+              {logVer === o.id && (
+                <div style={{flexBasis:'100%',background:'#f7f9fc',border:'1px solid #e2e7f0',borderRadius:'10px',padding:'8px 12px',marginTop:'4px'}}>
+                  <div style={{fontSize:'11px',fontWeight:'800',color:'#1a3a6b',marginBottom:'4px'}}>📜 CAMBIOS EN CAMPO (últimos {logItems.length})</div>
+                  {logItems.length === 0 && <div style={{fontSize:'12px',color:'#888'}}>Sin cambios de estructura ni quitas registradas.</div>}
+                  {logItems.map((l, i) => {
+                    const ic = { 'celda+':'➕', 'celda-':'➖', 'puesto+':'🆕', 'puesto-':'🗑', 'quitar':'↩️', 'jefe':'👤' }[l.tipo] || '·';
+                    return (
+                      <div key={i} style={{fontSize:'12px',color:'#333',padding:'3px 0',borderBottom:'1px solid #eef1f6'}}>
+                        {ic} {l.detalle}
+                        <span style={{color:'#888'}}> — {l.por ? l.por.nombre + ' (' + l.por.legajo + ')' : '—'} · {l.ts ? new Date(l.ts).toLocaleString('es-AR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : ''}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -4277,22 +4656,24 @@ function LoginModal({ onLogin }) {
   const handleLegajo = async () => {
     const clean = legajo.trim();
     if (!clean) { setError('Ingresá tu número de legajo.'); return; }
-    let user = USUARIOS_AUTORIZADOS[clean];
-    if (!user) {
-      // Buscar en usuarios de campo (Firestore)
-      setBuscando(true);
-      try {
-        const d = await window.firebaseUtils.db
-          .collection(window.firebaseUtils.collections.usuarios).doc(clean).get();
-        if (d.exists) {
-          const fu = d.data();
-          if (fu.activo === false) { setError('Usuario deshabilitado. Consultá al administrador.'); setBuscando(false); return; }
-          user = fu;
-        }
-      } catch(e) { /* sin conexión: cae al error genérico */ }
-      setBuscando(false);
+    setBuscando(true);
+    let user = null;
+    // 1) Firestore: fuente de verdad (permite editar/deshabilitar desde el panel Admin)
+    try {
+      const d = await Promise.race([
+        window.firebaseUtils.db.collection(window.firebaseUtils.collections.usuarios).doc(clean).get(),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('TIMEOUT')), 6000)),
+      ]);
+      if (d.exists) { user = d.data(); cacheUsuarioLocal(user); }
+    } catch(e) {
+      // 2) Sin señal: cache local del teléfono (guardado en logins anteriores)
+      user = leerUsuarioCache(clean);
     }
+    // 3) Usuarios fijos del código, como respaldo
+    if (!user) user = USUARIOS_AUTORIZADOS[clean] || null;
+    setBuscando(false);
     if (!user) { setError('Legajo no autorizado.'); return; }
+    if (user.activo === false) { setError('Usuario deshabilitado. Consultá al administrador.'); return; }
     const conRol = { ...user, rol: rolDeUsuario(user) };
     if (user.password) {
       setPendingUser(conRol);
