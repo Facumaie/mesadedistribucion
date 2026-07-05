@@ -3972,13 +3972,13 @@ function DetalleAsigModal({ asig, puesto, operativoId, usuario, rol, onClose, on
   );
 }
 
-function EditarJefeModal({ puesto, nomina, onGuardar, onClose, toast }) {
+function EditarJefeModal({ puesto, nomina, jefesQth = [], onGuardar, onClose, toast }) {
   const [datos, setDatos] = useState({
     jefeRango: puesto.jefeRango || '', jefeNombre: puesto.jefeNombre || '', jefeTel: puesto.jefeTel || '',
     tipo: puesto.tipo || '',
   });
   const [lpBusca, setLpBusca] = useState('');
-  const [resJefe, setResJefe] = useState([]);
+  const [resJefe, setResJefe] = useState({ qth: [], nom: [] });
   const [modoTextoJ, setModoTextoJ] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const inpRef = useRef(null);
@@ -3986,31 +3986,68 @@ function EditarJefeModal({ puesto, nomina, onGuardar, onClose, toast }) {
 
   const listaNomina = React.useMemo(() => Array.from(nomina.values()), [nomina]);
   const normJ = (s) => (s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const [avisoRango, setAvisoRango] = useState('');
+
+  // Jerarquías habilitadas para Jefe de Sector: de Comisario a Oficial Mayor
+  const RANGO_JEFE_MAX = ORDEN_JERARQUIAS.indexOf('OFICIAL MAYOR');
+  const esAptoJefe = (grado) => rankJerarquia(grado) <= RANGO_JEFE_MAX;
+
+  // ¿Este efectivo figura en el padrón de Jefes de QTH? (ahí están los teléfonos vigentes)
+  const buscarEnPadron = (apellido, nombre) => {
+    const objetivo = normJ(apellido + ', ' + nombre);
+    const objetivo2 = normJ(apellido + ' ' + nombre);
+    return jefesQth.find(j => {
+      const je = normJ(j.efectivo || '');
+      return je === objetivo || je === objetivo2 ||
+        (je.includes(normJ(apellido)) && nombre && je.includes(normJ(String(nombre).split(' ')[0])));
+    }) || null;
+  };
 
   const aplicarJefe = (ef) => {
-    setDatos(d => ({ ...d, jefeRango: ef.grado || '', jefeNombre: ef.apellido + (ef.nombre ? ', ' + ef.nombre : ''), jefeTel: ef.tel || '' }));
-    setResJefe([]);
+    // Si está en Jefes de QTH, el teléfono (vigente) viene de ahí
+    const enPadron = buscarEnPadron(ef.apellido, ef.nombre);
+    setDatos(d => ({ ...d,
+      jefeRango: ef.grado || '',
+      jefeNombre: ef.apellido + (ef.nombre ? ', ' + ef.nombre : ''),
+      jefeTel: (enPadron && enPadron.telefono) || ef.tel || '' }));
+    setResJefe({ qth: [], nom: [] });
     setLpBusca(ef.apellido);
+    if (enPadron && enPadron.telefono && enPadron.telefono !== ef.tel)
+      toast('Teléfono actualizado desde Jefes de QTH', 'info');
+  };
+
+  const aplicarDePadron = (j) => {
+    setDatos(d => ({ ...d, jefeRango: j.jerarquia || '', jefeNombre: j.efectivo || '', jefeTel: j.telefono || '' }));
+    setResJefe({ qth: [], nom: [] });
+    setLpBusca(j.efectivo || '');
   };
 
   const buscarLp = (v) => {
     setLpBusca(v);
+    setAvisoRango('');
     const digits = v.replace(/\D/g, '');
     if (digits && digits === v.trim()) {
-      setResJefe([]);
+      setResJefe({ qth: [], nom: [] });
       const ef = digits ? nomina.get(digits) : null;
-      if (ef) aplicarJefe(ef);
+      if (ef) {
+        if (!esAptoJefe(ef.grado)) { setAvisoRango(`${ef.apellido} es ${ef.grado || 'jerarquía desconocida'} — no habilitada para Jefe de Sector.`); return; }
+        aplicarJefe(ef);
+      }
       return;
     }
     const q = normJ(v.trim());
-    if (q.length < 3) { setResJefe([]); return; }
+    if (q.length < 3) { setResJefe({ qth: [], nom: [] }); return; }
+    // Fuente 1: padrón de Jefes de QTH (teléfonos vigentes)
+    const deQth = jefesQth.filter(j => normJ(j.efectivo || '').includes(q)).slice(0, 8);
+    // Fuente 2: nómina general, solo jerarquías habilitadas
     const empieza = [], contiene = [];
     for (const ef of listaNomina) {
+      if (!esAptoJefe(ef.grado)) continue;
       const ape = normJ(ef.apellido);
-      if (ape.startsWith(q)) { empieza.push(ef); if (empieza.length >= 10) break; }
-      else if (contiene.length < 10 && (ape.includes(q) || normJ(ef.apellido + ' ' + ef.nombre).includes(q))) contiene.push(ef);
+      if (ape.startsWith(q)) { empieza.push(ef); if (empieza.length >= 8) break; }
+      else if (contiene.length < 8 && (ape.includes(q) || normJ(ef.apellido + ' ' + ef.nombre).includes(q))) contiene.push(ef);
     }
-    setResJefe([...empieza, ...contiene].slice(0, 10));
+    setResJefe({ qth: deQth, nom: [...empieza, ...contiene].slice(0, 8) });
   };
 
   const alternarTecladoJ = () => {
@@ -4056,9 +4093,33 @@ function EditarJefeModal({ puesto, nomina, onGuardar, onClose, toast }) {
               {modoTextoJ ? '123' : 'ABC'}
             </button>
           </div>
-          {resJefe.length > 0 && (
-            <div style={{marginTop:'6px',border:'1px solid #ccd3e0',borderRadius:'10px',overflow:'hidden',maxHeight:'190px',overflowY:'auto'}}>
-              {resJefe.map(ef => (
+          <div style={{fontSize:'10px',color:'#8a99b5',marginTop:'4px'}}>Solo jerarquías de Comisario a Oficial Mayor.</div>
+          {avisoRango && (
+            <div style={{marginTop:'6px',fontSize:'12px',color:'#b26a00',background:'#fff8e1',padding:'8px 10px',borderRadius:'8px'}}>
+              ⚠️ {avisoRango}
+            </div>
+          )}
+          {(resJefe.qth.length > 0 || resJefe.nom.length > 0) && (
+            <div style={{marginTop:'6px',border:'1px solid #ccd3e0',borderRadius:'10px',overflow:'hidden',maxHeight:'230px',overflowY:'auto'}}>
+              {resJefe.qth.length > 0 && (
+                <div style={{background:'#12336a',color:'#ffd54f',fontSize:'9.5px',fontWeight:'800',letterSpacing:'.5px',padding:'4px 12px'}}>
+                  ⭐ JEFES DE QTH — teléfonos vigentes
+                </div>
+              )}
+              {resJefe.qth.map((j, i) => (
+                <button key={'q' + i} onClick={() => aplicarDePadron(j)}
+                  style={{display:'block',width:'100%',textAlign:'left',background:'#fbf7ea',border:'none',
+                    borderBottom:'1px solid #efe8d2',padding:'9px 12px',cursor:'pointer'}}>
+                  <span style={{fontWeight:'800',color:'#1a3a6b',fontSize:'13px'}}>{j.efectivo}</span>
+                  <div style={{fontSize:'10.5px',color:'#777'}}>{j.jerarquia || '—'}{j.telefono ? ' · ' + j.telefono : ''}</div>
+                </button>
+              ))}
+              {resJefe.nom.length > 0 && (
+                <div style={{background:'#586c8f',color:'#e8eefb',fontSize:'9.5px',fontWeight:'800',letterSpacing:'.5px',padding:'4px 12px'}}>
+                  NÓMINA GENERAL
+                </div>
+              )}
+              {resJefe.nom.map(ef => (
                 <button key={ef.lp} onClick={() => aplicarJefe(ef)}
                   style={{display:'block',width:'100%',textAlign:'left',background:'#fff',border:'none',
                     borderBottom:'1px solid #eef1f6',padding:'9px 12px',cursor:'pointer'}}>
@@ -4134,7 +4195,7 @@ function NuevoPuestoModal({ seccion, onGuardar, onClose, toast }) {
   );
 }
 
-function CampoTab({ usuario, rol, toast }) {
+function CampoTab({ usuario, rol, toast, jefesQth = [] }) {
   const [operativos, setOperativos] = useState([]);
   const [opId, setOpId] = useState(null);
   const [asigs, setAsigs] = useState([]);
@@ -4958,7 +5019,7 @@ function CampoTab({ usuario, rol, toast }) {
         </div>
       )}
       {modal && modal.tipo === 'jefe' && (
-        <EditarJefeModal puesto={modal.puesto} nomina={nomina || new Map()}
+        <EditarJefeModal puesto={modal.puesto} nomina={nomina || new Map()} jefesQth={jefesQth}
           onGuardar={async (d) => { await editarJefe(modal.puesto, d); setModal(null); }}
           onClose={() => setModal(null)} toast={toast}/>
       )}
@@ -6121,7 +6182,7 @@ function App() {
       </>}
 
       {tab==='campo'&&(
-        <CampoTab usuario={usuario} rol={rol} toast={toast}/>
+        <CampoTab usuario={usuario} rol={rol} toast={toast} jefesQth={jefes}/>
       )}
 
       {tab==='jefes'&&rol!=='operador'&&(
