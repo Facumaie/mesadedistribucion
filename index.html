@@ -598,6 +598,15 @@ const USUARIOS_AUTORIZADOS = {
 // Legajos con rol ADMIN (acceso total + panel Admin)
 const ADMIN_LEGAJOS = new Set(['27844']);
 
+// Orden institucional de jerarquías (para el PDF); las no listadas van al final
+const ORDEN_JERARQUIAS = ['COMISARIO GENERAL','COMISARIO MAYOR','COMISARIO INSPECTOR','COMISARIO','SUBCOMISARIO',
+  'PRINCIPAL','INSPECTOR','OFICIAL MAYOR','OFICIAL PRIMERO','OFICIAL'];
+function rankJerarquia(grado) {
+  const g = (grado || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const i = ORDEN_JERARQUIAS.indexOf(g);
+  return i === -1 ? 999 : i;
+}
+
 function rolDeUsuario(u) {
   if (!u) return null;
   if (ADMIN_LEGAJOS.has(String(u.legajo))) return 'admin';
@@ -785,11 +794,19 @@ function buildCampoPDF(operativo, asignaciones) {
         colSpan: 5,
         styles: { fillColor: [225, 231, 242], textColor: [26, 58, 107], fontStyle: 'bold', fontSize: 7 },
       }]);
+      const asignados = [];
+      let nVacantes = 0;
       for (let i = 0; i < (p.celdas || 0); i++) {
         const a = asigPorSlot[p.pid + '_s' + i];
-        if (a) body.push([String(i + 1), a.grado || '', a.lp || '', [a.apellido, a.nombre].filter(Boolean).join(', '), a.tel || '']);
-        else body.push([String(i + 1), { content: '— sin cubrir —', colSpan: 4, styles: { textColor: [160, 160, 160], fontStyle: 'italic' } }]);
+        if (a) asignados.push(a); else nVacantes++;
       }
+      asignados.sort((a, b) =>
+        rankJerarquia(a.grado) - rankJerarquia(b.grado) ||
+        (a.apellido || '').localeCompare(b.apellido || '', 'es'));
+      asignados.forEach((a, idx) =>
+        body.push([String(idx + 1), a.grado || '', a.lp || '', [a.apellido, a.nombre].filter(Boolean).join(', '), a.tel || '']));
+      for (let k = 0; k < nVacantes; k++)
+        body.push([String(asignados.length + k + 1), { content: '— sin cubrir —', colSpan: 4, styles: { textColor: [160, 160, 160], fontStyle: 'italic' } }]);
     });
     doc.autoTable({
       startY,
@@ -3597,6 +3614,8 @@ function AsignarModal({ puesto, slot, nomina, asignaciones, lpEnOtros = {}, onCo
   const [mData, setMData] = useState({ grado:'', apellido:'', nombre:'', tel:'' });
   const [guardando, setGuardando] = useState(false);
   const [modoTexto, setModoTexto] = useState(false); // false = teclado numérico (LP), true = letras (apellido)
+  const [telExtra, setTelExtra] = useState('');
+  useEffect(() => { setTelExtra(''); }, [match ? match.lp : null]);
   const inpRef = useRef(null);
 
   const alternarTeclado = () => {
@@ -3612,7 +3631,7 @@ function AsignarModal({ puesto, slot, nomina, asignaciones, lpEnOtros = {}, onCo
   // Al avanzar en cadena a otra celda, el modal se resetea y vuelve a enfocar
   useEffect(() => {
     setLp(''); setMatch(null); setResultados([]); setManual(false);
-    setMData({ grado:'', apellido:'', nombre:'', tel:'' }); setGuardando(false);
+    setMData({ grado:'', apellido:'', nombre:'', tel:'' }); setGuardando(false); setTelExtra('');
     setTimeout(() => inpRef.current && inpRef.current.focus(), 60);
   }, [puesto.pid, slot]);
 
@@ -3652,7 +3671,7 @@ function AsignarModal({ puesto, slot, nomina, asignaciones, lpEnOtros = {}, onCo
       ef = { lp: lp.replace(/\D/g,'') || '', grado: mData.grado.trim(), apellido: mData.apellido.trim().toUpperCase(), nombre: mData.nombre.trim().toUpperCase(), tel: mData.tel.trim(), enNomina: false };
     } else {
       if (!match) { toast('Buscá por legajo o apellido y seleccioná un efectivo, o usá "Carga manual".', 'error'); return; }
-      ef = { lp: match.lp, grado: match.grado, apellido: match.apellido, nombre: match.nombre, tel: match.tel, enNomina: true };
+      ef = { lp: match.lp, grado: match.grado, apellido: match.apellido, nombre: match.nombre, tel: match.tel || telExtra.trim(), enNomina: true };
     }
     if (yaAsignado && !confirm(`⚠️ El LP ${lpSel} ya está cargado en "${yaAsignado._puestoNombre || 'otro puesto'}".\n\n¿Cargarlo igual acá?`)) return;
     if (enOtro && !confirm(`🚨 DOBLE AFECTACIÓN: el LP ${lpSel} ya está afectado HOY en ${enOtro.estadio}${enOtro.puesto ? ' (' + enOtro.puesto + ')' : ''}.\n\n¿Cargarlo igual acá?`)) return;
@@ -3711,6 +3730,13 @@ function AsignarModal({ puesto, slot, nomina, asignaciones, lpEnOtros = {}, onCo
                 <div style={{fontSize:'12px',color:'#2e7d32',marginTop:'2px'}}>{match.grado} · LP {match.lp}{match.tel ? ' · Tel ' + match.tel : ''}</div>
               </div>
             )}
+            {match && !match.tel && (
+              <>
+                <label className="campo-label" style={{marginTop:'10px'}}>TELÉFONO — no figura en nómina (opcional)</label>
+                <input type="text" inputMode="tel" placeholder="Ej: 1112345678" value={telExtra}
+                  onChange={e => setTelExtra(e.target.value)} className="campo-input" style={{marginTop:0}}/>
+              </>
+            )}
             {yaAsignado && (
               <div style={{marginTop:'8px',fontSize:'12px',color:'#c62828',background:'#ffebee',padding:'8px 10px',borderRadius:'8px'}}>
                 ⚠️ Ya cargado en: <b>{yaAsignado._puestoNombre || 'otro puesto'}</b>
@@ -3748,6 +3774,17 @@ function AsignarModal({ puesto, slot, nomina, asignaciones, lpEnOtros = {}, onCo
 
 function DetalleAsigModal({ asig, puesto, operativoId, usuario, rol, onClose, onQuitarPendiente, toast }) {
   const esPendiente = !!asig._pendiente;
+  const [editTel, setEditTel] = useState(false);
+  const [telNuevo, setTelNuevo] = useState(asig.tel || '');
+  const guardarTel = async () => {
+    try {
+      const { db, collections } = window.firebaseUtils;
+      await db.collection(collections.operativos).doc(operativoId)
+        .collection('asignaciones').doc(asig.pid + '_s' + asig.slot).update({ tel: telNuevo.trim() });
+      toast('✓ Teléfono actualizado', 'success');
+      onClose();
+    } catch (err) { toast('Error: ' + err.message, 'error'); }
+  };
   const puedeQuitar = esPendiente || rol === 'admin' || rol === 'planificador' ||
     (asig.cargadoPor && String(asig.cargadoPor.legajo) === String(usuario.legajo));
   const quitar = async () => {
@@ -3792,6 +3829,18 @@ function DetalleAsigModal({ asig, puesto, operativoId, usuario, rol, onClose, on
               {asig.cargadoEn && ' · ' + new Date(asig.cargadoEn).toLocaleString('es-AR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}
             </div>
           )}
+          {!esPendiente && (editTel ? (
+            <div style={{display:'flex',gap:'8px',marginTop:'10px'}}>
+              <input type="text" inputMode="tel" placeholder="Ej: 1112345678" value={telNuevo}
+                onChange={e => setTelNuevo(e.target.value)} className="campo-input" style={{marginTop:0,flex:1}}
+                onKeyDown={e => e.key === 'Enter' && guardarTel()} autoFocus/>
+              <button className="campo-btn-sm" style={{minHeight:'40px'}} onClick={guardarTel}>✓</button>
+            </div>
+          ) : (
+            <button className="campo-btn-ghost" style={{marginTop:'10px'}} onClick={() => setEditTel(true)}>
+              📞 {asig.tel ? 'Editar teléfono' : 'Agregar teléfono'}
+            </button>
+          ))}
           {asig.avisado && (
             <div style={{marginTop:'8px',fontSize:'11px',color:'#1b5e20',background:'#e8f5e9',padding:'8px 10px',borderRadius:'8px'}}>
               📢 QTH y función avisados por <b>{asig.avisado.nombre}</b>
@@ -3809,6 +3858,7 @@ function DetalleAsigModal({ asig, puesto, operativoId, usuario, rol, onClose, on
 function EditarJefeModal({ puesto, nomina, onGuardar, onClose, toast }) {
   const [datos, setDatos] = useState({
     jefeRango: puesto.jefeRango || '', jefeNombre: puesto.jefeNombre || '', jefeTel: puesto.jefeTel || '',
+    tipo: puesto.tipo || '',
   });
   const [lpBusca, setLpBusca] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -3826,6 +3876,7 @@ function EditarJefeModal({ puesto, nomina, onGuardar, onClose, toast }) {
     setGuardando(true);
     await onGuardar({
       jefeRango: datos.jefeRango.trim(), jefeNombre: datos.jefeNombre.trim(), jefeTel: datos.jefeTel.trim(),
+      tipo: datos.tipo || '',
     });
     setGuardando(false);
   };
@@ -3835,10 +3886,16 @@ function EditarJefeModal({ puesto, nomina, onGuardar, onClose, toast }) {
       <div className="campo-modal">
         <div className="campo-modal-head">
           <div style={{fontSize:'11px',opacity:.8}}>{puesto.seccion}</div>
-          <div style={{fontWeight:'800',fontSize:'15px'}}>👤 Jefe de sector — {puesto.nombre}</div>
+          <div style={{fontWeight:'800',fontSize:'15px'}}>✏️ Editar puesto — {puesto.nombre}</div>
         </div>
         <div style={{padding:'16px'}}>
-          <label className="campo-label">BUSCAR EN NÓMINA POR LP (opcional)</label>
+          <label className="campo-label">TIPO DE PUESTO</label>
+          <select value={datos.tipo} onChange={e => setDatos(d => ({...d, tipo: e.target.value}))}
+            className="campo-input" style={{marginTop:0,marginBottom:'14px'}}>
+            <option value="">— Sin tipo —</option>
+            {TIPOS_DISPONIBLES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <label className="campo-label">JEFE DE SECTOR — BUSCAR EN NÓMINA POR LP (opcional)</label>
           <input ref={inpRef} type="text" inputMode="numeric" placeholder="Autocompleta grado, nombre y teléfono"
             value={lpBusca} onChange={e => buscarLp(e.target.value)} className="campo-input" style={{marginTop:0}}/>
           <label className="campo-label" style={{marginTop:'12px'}}>JERARQUÍA</label>
@@ -4368,11 +4425,13 @@ function CampoTab({ usuario, rol, toast }) {
         puestos[i] = { ...puestos[i],
           jefeRango: datos.jefeRango || null,
           jefeNombre: datos.jefeNombre || null,
-          jefeTel: datos.jefeTel || null };
+          jefeTel: datos.jefeTel || null,
+          tipo: datos.tipo || null };
         tx.update(ref, { puestos, ultimaModPuestos: { legajo: usuario.legajo, nombre: usuario.nombre, ts: new Date().toISOString() } });
       });
-      logOperativo(opId, 'jefe', `${p.nombre}: Jefe → ${datos.jefeNombre ? [datos.jefeRango, datos.jefeNombre].filter(Boolean).join(' ') : '(sin jefe)'}`, usuario);
-      toast('✓ Jefe de sector actualizado', 'success');
+      const cambioTipo = (datos.tipo || null) !== (p.tipo || null) ? ` · Tipo → ${datos.tipo || '(sin tipo)'}` : '';
+      logOperativo(opId, 'jefe', `${p.nombre}: Jefe → ${datos.jefeNombre ? [datos.jefeRango, datos.jefeNombre].filter(Boolean).join(' ') : '(sin jefe)'}${cambioTipo}`, usuario);
+      toast('✓ Puesto actualizado', 'success');
     } catch (err) { toast('Error: ' + err.message, 'error'); }
   };
 
@@ -4548,7 +4607,7 @@ function CampoTab({ usuario, rol, toast }) {
                         <button className="campo-mini-btn" title="Quitar una celda" onClick={() => cambiarCeldas(p, -1)}>−</button>
                         <button className="campo-mini-btn" title="Agregar una celda" onClick={() => cambiarCeldas(p, 1)}>＋</button>
                         {(rol === 'admin' || rol === 'planificador') && <>
-                          <button className="campo-mini-btn" title="Editar jefe de sector" onClick={() => setModal({ tipo:'jefe', puesto:p })}>✏️</button>
+                          <button className="campo-mini-btn" title="Editar puesto (tipo y jefe)" onClick={() => setModal({ tipo:'jefe', puesto:p })}>✏️</button>
                           <button className="campo-mini-btn" style={{color:'#b71c1c'}} title="Eliminar puesto" onClick={() => eliminarPuesto(p)}>🗑</button>
                         </>}
                       </>}
