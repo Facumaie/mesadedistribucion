@@ -248,6 +248,54 @@
       display: inline-flex; align-items: center; gap: 3px; line-height: 1.4;
     }
 
+    /* ── LOGIN ── */
+    .login-screen { position: fixed; inset: 0; z-index: 10000;
+      display: flex; align-items: center; justify-content: center; padding: 22px;
+      background:
+        radial-gradient(1100px 750px at 85% -10%, rgba(46,95,173,.55) 0%, transparent 60%),
+        radial-gradient(900px 700px at -15% 115%, rgba(21,68,133,.6) 0%, transparent 55%),
+        linear-gradient(160deg, #081d3d 0%, #0c2b57 45%, #123869 100%); }
+    .login-card { width: 100%; max-width: 400px; background: #fff; border-radius: 22px;
+      box-shadow: 0 24px 70px rgba(3,12,30,.55); padding: 0 30px 26px; position: relative;
+      animation: loginIn .35s ease; }
+    @keyframes loginIn { from { opacity: 0; transform: translateY(16px) scale(.98); } to { opacity: 1; transform: none; } }
+    .login-escudo { width: 96px; height: 96px; background: #fff; border-radius: 24px;
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+      margin: -46px auto 0; font-weight: 900; font-size: 14px; color: #12336a;
+      box-shadow: 0 12px 30px rgba(6,20,45,.4); }
+    .login-escudo img { width: 82px; height: 82px; object-fit: contain; }
+    .login-title { text-align: center; margin-top: 16px; font-size: 19px; font-weight: 800;
+      color: #0c2b57; letter-spacing: .5px; }
+    .login-sub { text-align: center; font-size: 9.5px; font-weight: 700; letter-spacing: 2.4px;
+      color: #7c93b8; margin-top: 5px; }
+    .login-gold { width: 42px; height: 4px; background: #f2b705; border-radius: 3px; margin: 14px auto 4px; }
+    .login-label { display: block; font-size: 11px; font-weight: 800; letter-spacing: .8px;
+      color: #12336a; margin: 18px 0 7px; }
+    .login-input { width: 100%; padding: 14px 16px; border: 1.5px solid #d4dcea; border-radius: 12px;
+      font-size: 21px; font-weight: 700; text-align: center; letter-spacing: 6px;
+      color: #12336a; background: #f7f9fc; transition: border-color .15s, box-shadow .15s, background .15s; }
+    .login-input:focus { outline: none; border-color: #2e5fad; background: #fff;
+      box-shadow: 0 0 0 4px rgba(46,95,173,.15); }
+    .login-btn { width: 100%; margin-top: 18px; padding: 14px; border: none; border-radius: 12px;
+      background: linear-gradient(135deg, #12336a, #2e5fad); color: #fff;
+      font-weight: 800; font-size: 14px; letter-spacing: 1px; cursor: pointer;
+      box-shadow: 0 8px 22px rgba(18,51,106,.35); transition: transform .08s, box-shadow .15s; }
+    .login-btn:hover { box-shadow: 0 10px 26px rgba(18,51,106,.45); }
+    .login-btn:active { transform: translateY(1px); }
+    .login-btn:disabled { opacity: .65; cursor: default; }
+    .login-error { margin-top: 12px; background: #ffebee; color: #b71c1c; font-size: 12px;
+      font-weight: 700; padding: 9px 12px; border-radius: 10px; text-align: center; }
+    .login-chip { display: flex; align-items: center; gap: 10px; margin-top: 20px;
+      background: #f2f6fd; border: 1px solid #d8e2f2; border-radius: 14px; padding: 10px 12px; }
+    .login-chip-av { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, #12336a, #2e5fad); color: #fff;
+      display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; }
+    .login-chip-back { margin-left: auto; background: none; border: none; color: #9db0cc;
+      font-size: 14px; font-weight: 800; cursor: pointer; padding: 4px 6px; flex-shrink: 0; }
+    .login-chip-back:hover { color: #b71c1c; }
+    .login-footer { text-align: center; margin-top: 20px; font-size: 9.5px; line-height: 1.6;
+      color: #9aa9c0; font-weight: 600; letter-spacing: .4px; }
+
     /* ── LAYOUT CON SIDEBAR (estilo Sistema AIR) ── */
     .layout { min-height: 100vh; }
     .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 236px; z-index: 900;
@@ -1760,11 +1808,9 @@ function SbIcon({ id }) {
 
 function Sidebar({ usuario, rol, tab, onTab, historialCount, onLogout, open, onClose }) {
   const items = [];
-  if (rol !== 'operador') {
-    items.push({ id: 'distribucion', label: 'Distribución' });
-    items.push({ id: 'historial', label: 'Historial', badge: historialCount });
-  }
+  if (rol !== 'operador') items.push({ id: 'distribucion', label: 'Distribución Previa' });
   items.push({ id: 'campo', label: 'Carga Operativa' });
+  if (rol !== 'operador') items.push({ id: 'historial', label: 'Historial por Evento', badge: historialCount });
   if (rol === 'admin') items.push({ id: 'admin', label: 'Admin' });
   return (
     <aside className={'sidebar' + (open ? ' open' : '')}>
@@ -3352,6 +3398,16 @@ function HistorialTab({ historial, estadioNombre, onCargar, onVer, onEliminar, o
   const estadiosUnicos = [...new Set(historial.map(h => h.estadio).filter(Boolean))].sort();
   const histFiltrado   = filtroEstadio ? historial.filter(h => h.estadio === filtroEstadio) : historial;
 
+  // Agrupar por estadio (equipo local) para ordenar la tabla
+  const [gruposAbiertos, setGruposAbiertos] = React.useState({});
+  const grupos = [];
+  histFiltrado.forEach(h => {
+    const key = h.estadio || 'SIN ESTADIO';
+    let g = grupos.find(x => x.estadio === key);
+    if (!g) { g = { estadio: key, items: [] }; grupos.push(g); }
+    g.items.push(h);
+  });
+
   return (
     <div style={{padding:'14px', maxWidth:'1400px', margin:'0 auto'}}>
       <div className="main-layout" style={{gridTemplateColumns:'380px 1fr',alignItems:'start'}}>
@@ -3399,7 +3455,22 @@ function HistorialTab({ historial, estadioNombre, onCargar, onVer, onEliminar, o
                       <th>GUARDADO</th><th>GUARDADO POR</th><th style={{width:'130px'}}></th>
                     </tr></thead>
                     <tbody>
-                      {histFiltrado.map((h,idx) => {
+                      {grupos.map(g => {
+                        const abierto = grupos.length === 1 || !!gruposAbiertos[g.estadio];
+                        const celdasGrupo = g.items.reduce((s,h) => s + (h.qths||[]).reduce((s2,q) => s2+(q.celdas||0), 0), 0);
+                        return (
+                        <React.Fragment key={g.estadio}>
+                          <tr onClick={() => setGruposAbiertos(s => ({...s, [g.estadio]: !abierto}))}
+                            style={{cursor:'pointer',background:'linear-gradient(90deg,#12336a,#1a3a6b)',userSelect:'none'}}>
+                            <td colSpan={9} style={{color:'#fff',fontWeight:'800',padding:'9px 12px',fontSize:'12px',letterSpacing:'.3px'}}>
+                              {abierto ? '▾' : '▸'} 🏟 {g.estadio}
+                              <span style={{opacity:.75,fontWeight:'600',marginLeft:'8px'}}>
+                                {g.items.length} evento{g.items.length > 1 ? 's' : ''} · último: {fmtFecha(g.items[0].fechaEvento)}
+                              </span>
+                              <span style={{float:'right',opacity:.7,fontWeight:'600',fontSize:'11px'}}>{celdasGrupo} celdas acum.</span>
+                            </td>
+                          </tr>
+                          {abierto && g.items.map((h,idx) => {
                         const extras = [];
                         if ((h.motos||[]).length) extras.push(`🏍${h.motos.length}`);
                         if ((h.tercerAnillo||[]).length) extras.push(`🔵${h.tercerAnillo.length}`);
@@ -3434,6 +3505,9 @@ function HistorialTab({ historial, estadioNombre, onCargar, onVer, onEliminar, o
                               onClick={e => { e.stopPropagation(); onEliminar(h.id); }} title="Eliminar">✕</button>
                           </td>
                         </tr>
+                        );
+                      })}
+                        </React.Fragment>
                         );
                       })}
                     </tbody>
@@ -3978,7 +4052,7 @@ function CampoTab({ usuario, rol, toast }) {
         <div className="campo-titulo">📱 CARGA OPERATIVA</div>
         {nomina === null && <div className="campo-aviso">⏳ Descargando nómina...</div>}
         {nomina !== null && nomina.size === 0 && <div className="campo-aviso" style={{background:'#fff3e0',color:'#b26a00'}}>⚠️ No hay nómina cargada. El admin debe subirla desde la solapa Admin.</div>}
-        {abiertos.length === 0 && <div className="campo-aviso">No hay operativos abiertos. {rol !== 'operador' ? 'Publicá uno desde "Distribución Actual".' : 'Esperá a que la Mesa publique el operativo.'}</div>}
+        {abiertos.length === 0 && <div className="campo-aviso">No hay operativos abiertos. {rol !== 'operador' ? 'Publicá uno desde "Distribución Previa".' : 'Esperá a que la Mesa publique el operativo.'}</div>}
         {abiertos.map(o => {
           const tot = (o.puestos || []).reduce((s, p) => s + (p.celdas || 0), 0);
           return (
@@ -4762,7 +4836,7 @@ function AdminTab({ usuario, toast }) {
           <span className="counter-pill">{operativos.length}</span>
         </div>
         <div className="card-body">
-          {operativos.length === 0 && <div className="empty-state">Sin operativos. Publicá uno desde "Distribución Actual".</div>}
+          {operativos.length === 0 && <div className="empty-state">Sin operativos. Publicá uno desde "Distribución Previa".</div>}
           {operativos.map(o => (
             <div key={o.id} style={{display:'flex',alignItems:'center',gap:'10px',padding:'8px 4px',borderBottom:'1px solid #eef1f6',flexWrap:'wrap'}}>
               <div style={{flex:1,minWidth:'200px'}}>
@@ -4859,95 +4933,56 @@ function LoginModal({ onLogin }) {
   };
 
   return (
-    <div style={{
-      position:'fixed', inset:0, background:'rgba(0,0,0,0.6)',
-      display:'flex', alignItems:'center', justifyContent:'center', zIndex:10000,
-    }}>
-      <div style={{
-        background:'#fff', borderRadius:'12px', padding:'0', width:'380px',
-        boxShadow:'0 8px 32px rgba(0,0,0,0.35)', overflow:'hidden',
-      }}>
-        <div style={{
-          background:'linear-gradient(135deg,#1a3a6b,#2e5fad)', padding:'24px 28px',
-          color:'#fff', textAlign:'center',
-        }}>
-          <div style={{
-            width:'86px',height:'86px',background:'#fff',borderRadius:'20px',
-            margin:'0 auto 14px',display:'flex',alignItems:'center',justifyContent:'center',
-            fontWeight:'900',fontSize:'12px',color:'#1a3a6b',lineHeight:'1.2',
-            overflow:'hidden',boxShadow:'0 4px 14px rgba(0,0,0,.25)',
-          }}>
-            <img src="escudo.png" alt="DPEM" style={{width:'76px',height:'76px',objectFit:'contain'}}
-              onError={e => { e.target.style.display='none'; e.target.parentNode.textContent='DPEM'; }}/>
-          </div>
-          <div style={{fontSize:'16px',fontWeight:'700',letterSpacing:'1px'}}>MESA DE DISTRIBUCIÓN</div>
-          <div style={{fontSize:'11px',opacity:.8,marginTop:'4px'}}>
-            {step==='legajo' ? 'Ingreso con Legajo' : `Legajo ${pendingUser?.legajo} · ${pendingUser?.nombre}`}
-          </div>
+    <div className="login-screen">
+      <div className="login-card">
+        <div className="login-escudo">
+          <img src="escudo.png" alt="DPEM"
+            onError={e => { e.target.style.display='none'; e.target.parentNode.textContent='DPEM'; }}/>
         </div>
-        <div style={{padding:'24px 28px'}}>
-          {step==='legajo' ? (<>
-            <label style={{fontSize:'12px',fontWeight:'700',color:'#1a3a6b',marginBottom:'6px',display:'block'}}>
-              NÚMERO DE LEGAJO
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder="Ej: 73322"
-              value={legajo}
-              onChange={e => { setLegajo(e.target.value.replace(/\D/g,'')); setError(''); }}
-              onKeyDown={e => e.key==='Enter' && handleLegajo()}
-              autoFocus
-              style={{
-                width:'100%', padding:'12px 14px', border:'2px solid #ccc', borderRadius:'8px',
-                fontSize:'18px', fontFamily:'monospace', textAlign:'center', letterSpacing:'3px',
-                boxSizing:'border-box',
-              }}
-            />
-          </>) : (<>
-            <label style={{fontSize:'12px',fontWeight:'700',color:'#1a3a6b',marginBottom:'6px',display:'block'}}>
-              CONTRASEÑA
-            </label>
-            <input
-              ref={passRef}
-              type="password"
-              placeholder="••••••"
-              value={password}
-              onChange={e => { setPassword(e.target.value); setError(''); }}
-              onKeyDown={e => e.key==='Enter' && handlePassword()}
-              style={{
-                width:'100%', padding:'12px 14px', border:'2px solid #ccc', borderRadius:'8px',
-                fontSize:'18px', fontFamily:'monospace', textAlign:'center', letterSpacing:'3px',
-                boxSizing:'border-box',
-              }}
-            />
-          </>)}
-          {error && (
-            <div style={{
-              color:'#d32f2f', fontSize:'12px', fontWeight:'600',
-              marginTop:'8px', textAlign:'center',
-            }}>{error}</div>
-          )}
-          <button
-            onClick={step==='legajo' ? handleLegajo : handlePassword}
-            style={{
-              width:'100%', padding:'12px', marginTop:'16px',
-              background:'#1a3a6b', color:'#fff', border:'none', borderRadius:'8px',
-              fontSize:'14px', fontWeight:'700', cursor:'pointer', letterSpacing:'.5px',
-            }}
-          >{step==='legajo' ? (buscando ? '⏳ Verificando...' : 'CONTINUAR') : 'INGRESAR'}</button>
-          {step==='password' && (
-            <button
-              onClick={handleBack}
-              style={{
-                width:'100%', padding:'8px', marginTop:'8px',
-                background:'transparent', color:'#888', border:'1px solid #ddd', borderRadius:'8px',
-                fontSize:'12px', cursor:'pointer',
-              }}
-            >← Cambiar legajo</button>
-          )}
-        </div>
+        <div className="login-title">MESA DE DISTRIBUCIÓN</div>
+        <div className="login-sub">DSED · DPEM · POLICÍA DE LA CIUDAD</div>
+        <div className="login-gold"/>
+
+        {step === 'legajo' ? (<>
+          <label className="login-label">NÚMERO DE LEGAJO</label>
+          <input
+            type="text" inputMode="numeric" pattern="[0-9]*"
+            placeholder="— — — — —" autoFocus autoComplete="off"
+            className="login-input"
+            value={legajo}
+            onChange={e => { setLegajo(e.target.value.replace(/\D/g,'')); setError(''); }}
+            onKeyDown={e => e.key === 'Enter' && handleLegajo()}
+          />
+        </>) : (<>
+          <div className="login-chip">
+            <div className="login-chip-av">{(pendingUser?.nombre || '?').charAt(0)}</div>
+            <div style={{minWidth:0}}>
+              <div style={{fontWeight:'800',fontSize:'13px',color:'#12336a',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                {pendingUser?.jerarquia ? pendingUser.jerarquia + ' ' : ''}{pendingUser?.nombre}
+              </div>
+              <div style={{fontSize:'11px',color:'#7c93b8',fontWeight:'600'}}>LP {pendingUser?.legajo}</div>
+            </div>
+            <button className="login-chip-back" onClick={handleBack} title="Cambiar legajo">✕</button>
+          </div>
+          <label className="login-label">CONTRASEÑA</label>
+          <input
+            ref={passRef}
+            type="password" placeholder="••••••"
+            className="login-input"
+            value={password}
+            onChange={e => { setPassword(e.target.value); setError(''); }}
+            onKeyDown={e => e.key === 'Enter' && handlePassword()}
+          />
+        </>)}
+
+        {error && <div className="login-error">{error}</div>}
+
+        <button className="login-btn" disabled={buscando}
+          onClick={step === 'legajo' ? handleLegajo : handlePassword}>
+          {step === 'legajo' ? (buscando ? '⏳ VERIFICANDO...' : 'CONTINUAR →') : 'INGRESAR'}
+        </button>
+
+        <div className="login-footer">Dirección Prevención en Eventos Masivos<br/>Depto. Seguridad en Eventos Deportivos</div>
       </div>
     </div>
   );
@@ -5396,12 +5431,7 @@ function App() {
     </div>
   ) : null;
 
-  if (!usuario) return (
-    <div>
-      <Header/>
-      <LoginModal onLogin={handleLogin}/>
-    </div>
-  );
+  if (!usuario) return <LoginModal onLogin={handleLogin}/>;
 
   if (viendoHist) return (
     <div>
