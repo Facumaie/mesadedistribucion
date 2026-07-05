@@ -687,11 +687,6 @@ async function cargarNomina() {
 function buildPuestosCampo(qths, motos, infanteria, refuerzo, tercerAnillo, esRiver) {
   const puestos = [];
   let orden = 0;
-  motos.forEach((m, i) => puestos.push({
-    pid: 'mot' + i, seccion: 'MOTORIZADA', orden: orden++,
-    nombre: m.qth || ('Moto ' + (i + 1)), celdas: 1, tipo: 'MOTO',
-    jefeNombre: null, jefeRango: null, jefeTel: null, descripcion: '',
-  }));
   infanteria.forEach((c, i) => puestos.push({
     pid: 'inf' + i,
     seccion: 'CORTES CON INFANTERÍA' + (esRiver && c.sector ? ' — SECTOR ' + c.sector : ''),
@@ -716,6 +711,11 @@ function buildPuestosCampo(qths, motos, infanteria, refuerzo, tercerAnillo, esRi
     nombre: q.nombre || '', descripcion: q.descripcion || '',
     celdas: q.celdas || 1, tipo: q.tipo || null,
     jefeNombre: q.jefeNombre || null, jefeRango: q.jefeRango || null, jefeTel: q.jefeTel || null,
+  }));
+  motos.forEach((m, i) => puestos.push({
+    pid: 'mot' + i, seccion: 'MOTORIZADA', orden: orden++,
+    nombre: m.qth || ('Moto ' + (i + 1)), celdas: 1, tipo: 'MOTO',
+    jefeNombre: null, jefeRango: null, jefeTel: null, descripcion: '',
   }));
   return puestos;
 }
@@ -751,6 +751,8 @@ function buildCampoPDF(operativo, asignaciones) {
   let startY = 34;
   const secciones = [];
   operativo.puestos.forEach(p => { if (!secciones.includes(p.seccion)) secciones.push(p.seccion); });
+  const _iMot = secciones.indexOf('MOTORIZADA');
+  if (_iMot !== -1) { secciones.splice(_iMot, 1); secciones.push('MOTORIZADA'); }
 
   secciones.forEach(sec => {
     const pts = operativo.puestos.filter(p => p.seccion === sec);
@@ -4190,6 +4192,9 @@ function CampoTab({ usuario, rol, toast }) {
 
   const secciones = [];
   (operativo.puestos || []).forEach(p => { if (!secciones.includes(p.seccion)) secciones.push(p.seccion); });
+  // Motorizada siempre al final, también en operativos ya publicados
+  const iMot = secciones.indexOf('MOTORIZADA');
+  if (iMot !== -1) { secciones.splice(iMot, 1); secciones.push('MOTORIZADA'); }
 
   const f = filtro.trim().toLowerCase();
 
