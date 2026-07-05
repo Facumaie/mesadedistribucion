@@ -4034,6 +4034,8 @@ function CampoTab({ usuario, rol, toast }) {
 // ── ADMIN: usuarios de campo + nómina + operativos ─────────────
 function AdminTab({ usuario, toast }) {
   const [usuarios, setUsuarios] = useState([]);
+  const [filtroU, setFiltroU] = useState('');
+  const [verFijos, setVerFijos] = useState(false);
   const [form, setForm] = useState({ legajo:'', nombre:'', jerarquia:'', password:'', rol:'operador' });
   const [nominaMeta, setNominaMeta] = useState(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -4131,10 +4133,10 @@ function AdminTab({ usuario, toast }) {
         </div>
       </div>
 
-      {/* USUARIOS DE CAMPO */}
+      {/* USUARIOS CON PERMISO */}
       <div className="card" style={{marginTop:'16px'}}>
-        <div className="card-header"><span>👥 USUARIOS DE CAMPO</span>
-          <span className="counter-pill">{usuarios.length}</span>
+        <div className="card-header"><span>👥 USUARIOS CON PERMISO</span>
+          <span className="counter-pill">{usuarios.length + Object.keys(USUARIOS_AUTORIZADOS).length}</span>
         </div>
         <div className="card-body">
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:'8px',marginBottom:'10px'}}>
@@ -4154,33 +4156,84 @@ function AdminTab({ usuario, toast }) {
           </div>
           <button className="btn btn-success" onClick={altaUsuario}>➕ Dar de alta</button>
 
-          {usuarios.length > 0 && (
-            <div style={{overflowX:'auto',marginTop:'14px'}}>
-              <table className="tbl">
-                <thead><tr><th>LP</th><th>NOMBRE</th><th>JERARQUÍA</th><th>ROL</th><th>CLAVE</th><th>ALTA POR</th><th style={{textAlign:'center'}}>ESTADO</th><th style={{textAlign:'center'}}>ACCIONES</th></tr></thead>
-                <tbody>
-                  {usuarios.map(u => (
-                    <tr key={u.id} style={u.activo === false ? {opacity:.5} : null}>
-                      <td style={{fontFamily:'monospace'}}>{u.legajo}</td>
-                      <td style={{fontWeight:'600'}}>{u.nombre}</td>
-                      <td>{u.jerarquia || '—'}</td>
-                      <td>{u.rol === 'planificador' ? '🗂 Planificador' : '📱 Operador'}</td>
-                      <td style={{fontFamily:'monospace'}}>{u.password}</td>
-                      <td style={{fontSize:'11px',color:'#777'}}>{u.creadoPor ? `${u.creadoPor.nombre} (${u.creadoPor.legajo})` : '—'}<br/>{u.creadoEn ? fmtTs(u.creadoEn) : ''}</td>
-                      <td style={{textAlign:'center'}}>
-                        <button className="btn btn-sm" style={{background: u.activo === false ? '#9e9e9e' : '#2e7d32', color:'#fff', border:'none'}} onClick={() => toggleActivo(u)}>
-                          {u.activo === false ? 'Inactivo' : 'Activo'}
-                        </button>
-                      </td>
-                      <td style={{textAlign:'center'}}>
-                        <button className="btn btn-sm btn-danger" onClick={() => borrarUsuario(u)}>🗑</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <div style={{marginTop:'14px'}}>
+            <input style={{...inp, maxWidth:'320px', marginTop:0}} type="text" placeholder="🔍 Filtrar por legajo o nombre..."
+              value={filtroU} onChange={e => setFiltroU(e.target.value)}/>
+          </div>
+
+          {/* Usuarios dados de alta por admin (Firestore) */}
+          {(() => {
+            const fq = filtroU.trim().toUpperCase();
+            const pasa = (u) => !fq || String(u.legajo).includes(fq) || (u.nombre||'').toUpperCase().includes(fq);
+            const lista = usuarios.filter(pasa);
+            return (<>
+              <div style={{fontSize:'12px',fontWeight:'800',color:'#1a3a6b',margin:'14px 0 6px'}}>
+                DADOS DE ALTA POR ADMIN ({lista.length}{fq ? ' de ' + usuarios.length : ''})
+              </div>
+              {lista.length === 0 && <div className="empty-state" style={{padding:'10px'}}>{fq ? 'Sin coincidencias.' : 'Todavía no diste de alta usuarios de campo.'}</div>}
+              {lista.length > 0 && (
+                <div style={{overflowX:'auto'}}>
+                  <table className="tbl">
+                    <thead><tr><th>LP</th><th>NOMBRE</th><th>JERARQUÍA</th><th>ROL</th><th>CLAVE</th><th>ALTA POR</th><th style={{textAlign:'center'}}>ESTADO</th><th style={{textAlign:'center'}}>ACCIONES</th></tr></thead>
+                    <tbody>
+                      {lista.map(u => (
+                        <tr key={u.id} style={u.activo === false ? {opacity:.5} : null}>
+                          <td style={{fontFamily:'monospace'}}>{u.legajo}</td>
+                          <td style={{fontWeight:'600'}}>{u.nombre}</td>
+                          <td>{u.jerarquia || '—'}</td>
+                          <td>{u.rol === 'planificador' ? '🗂 Planificador' : '📱 Operador'}</td>
+                          <td style={{fontFamily:'monospace'}}>{u.password}</td>
+                          <td style={{fontSize:'11px',color:'#777'}}>{u.creadoPor ? `${u.creadoPor.nombre} (${u.creadoPor.legajo})` : '—'}<br/>{u.creadoEn ? fmtTs(u.creadoEn) : ''}</td>
+                          <td style={{textAlign:'center'}}>
+                            <button className="btn btn-sm" style={{background: u.activo === false ? '#9e9e9e' : '#2e7d32', color:'#fff', border:'none'}} onClick={() => toggleActivo(u)}>
+                              {u.activo === false ? 'Inactivo' : 'Activo'}
+                            </button>
+                          </td>
+                          <td style={{textAlign:'center'}}>
+                            <button className="btn btn-sm btn-danger" onClick={() => borrarUsuario(u)}>🗑</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Usuarios fijos del sistema (definidos en el código) */}
+              {(() => {
+                const fijos = Object.values(USUARIOS_AUTORIZADOS).filter(pasa);
+                const mostrar = verFijos || !!fq;
+                return (<>
+                  <div style={{display:'flex',alignItems:'center',gap:'8px',margin:'16px 0 6px'}}>
+                    <div style={{fontSize:'12px',fontWeight:'800',color:'#1a3a6b'}}>
+                      FIJOS DEL SISTEMA ({fijos.length}{fq ? ' de ' + Object.keys(USUARIOS_AUTORIZADOS).length : ''})
+                    </div>
+                    {!fq && <button className="btn btn-sm btn-secondary" onClick={() => setVerFijos(v => !v)}>{verFijos ? 'Ocultar' : 'Ver'}</button>}
+                  </div>
+                  <div style={{fontSize:'11px',color:'#888',marginBottom:'6px'}}>Definidos en el código de la app. Para modificarlos hay que editar el archivo y volver a deployar.</div>
+                  {mostrar && (fijos.length === 0
+                    ? <div className="empty-state" style={{padding:'10px'}}>Sin coincidencias.</div>
+                    : <div style={{overflowX:'auto'}}>
+                        <table className="tbl">
+                          <thead><tr><th>LP</th><th>NOMBRE</th><th>JERARQUÍA</th><th>ROL</th><th>CLAVE</th><th>ORIGEN</th></tr></thead>
+                          <tbody>
+                            {fijos.map(u => (
+                              <tr key={u.legajo}>
+                                <td style={{fontFamily:'monospace'}}>{u.legajo}</td>
+                                <td style={{fontWeight:'600'}}>{u.nombre}</td>
+                                <td>{u.jerarquia || '—'}</td>
+                                <td>{rolDeUsuario(u) === 'admin' ? '⭐ Admin' : '🗂 Planificador'}</td>
+                                <td style={{fontFamily:'monospace'}}>{u.password || <span style={{color:'#999'}}>sin clave</span>}</td>
+                                <td><span className="badge" style={{background:'#546e7a',color:'#fff'}}>SISTEMA</span></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>)}
+                </>);
+              })()}
+            </>);
+          })()}
         </div>
       </div>
 
