@@ -897,7 +897,7 @@ function buildCampoPDF(operativo, asignaciones) {
         didParseCell: (data) => {
           // Zebra: celda por medio con tinte visible (la fila 0 es el título del puesto)
           if (data.section === 'body' && data.row.index > 0 && data.row.index % 2 === 0) {
-            data.cell.styles.fillColor = [233, 238, 247];
+            data.cell.styles.fillColor = [238, 239, 242]; // gris neutro: se distingue del blanco y del azul del título
           }
         },
         didDrawCell: (data) => {
@@ -928,7 +928,15 @@ function buildCampoPDF(operativo, asignaciones) {
     doc.setFont(FONT, 'bold'); doc.setTextColor(...NAVY);
     doc.text(`${operativo.estadio} · ${fmtFecha(operativo.fecha)}  —  Hoja ${i} de ${pages}`, W - 14, hPag - 6.5, { align: 'right' });
   }
-  const nombre = `Distribucion_${(operativo.estadio || '').replace(/[^\wÁÉÍÓÚÑáéíóúñ]+/g, '_')}_${operativo.fecha || todayISO()}.pdf`;
+  // Nombre: Distribucion_Local_vs_Visitante_DD-MM-AAAA.pdf
+  const baseNombre = operativo.partido || operativo.estadio || 'Operativo';
+  const palabras = baseNombre
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // sin tildes (nombres de archivo seguros)
+    .replace(/\./g, '')
+    .split(/[^A-Za-z0-9]+/).filter(Boolean)
+    .map(w => w.toUpperCase() === 'VS' ? 'vs' : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+  const fechaNombre = (operativo.fecha || todayISO()).split('-').reverse().join('-');
+  const nombre = `Distribucion_${palabras.join('_')}_${fechaNombre}.pdf`;
   return { blob: doc.output('blob'), nombre };
 }
 
