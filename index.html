@@ -256,6 +256,16 @@
       display: inline-flex; align-items: center; gap: 3px; line-height: 1.4;
     }
 
+    /* ── MODO GUARDIA (oscuro) ── */
+    body.dark { background: #0b1320; }
+    body.dark .main {
+      filter: invert(0.92) hue-rotate(180deg);
+      background: #0d1524; min-height: 100vh;
+    }
+    /* Las imágenes y emojis grandes se re-invierten para verse normales */
+    body.dark .main img { filter: invert(1) hue-rotate(180deg); }
+    body.dark .topbar { filter: none; }
+
     /* ── LOGIN ── */
     .login-screen { position: fixed; inset: 0; z-index: 10000;
       display: flex; align-items: center; justify-content: center; padding: 22px;
@@ -1818,7 +1828,7 @@ function SbIcon({ id }) {
   return null;
 }
 
-function Sidebar({ usuario, rol, tab, onTab, historialCount, onLogout, open, onClose }) {
+function Sidebar({ usuario, rol, tab, onTab, historialCount, onLogout, open, onClose, dark, onToggleDark }) {
   const items = [];
   if (rol !== 'operador') items.push({ id: 'distribucion', label: 'Distribución Previa' });
   items.push({ id: 'campo', label: 'Carga Operativa' });
@@ -1848,6 +1858,10 @@ function Sidebar({ usuario, rol, tab, onTab, historialCount, onLogout, open, onC
         ))}
       </nav>
       <div className="sb-footer">
+        <button className="sb-user" style={{marginBottom:'8px'}} onClick={onToggleDark}>
+          <span>{dark ? '☀️' : '🌙'}</span>
+          <span className="sb-user-name">{dark ? 'Modo día' : 'Modo guardia'}</span>
+        </button>
         <button className="sb-user" onClick={onLogout} title="Cerrar sesión">
           <span>👤</span>
           <span className="sb-user-name">{usuario.jerarquia ? usuario.jerarquia + ' ' : ''}{usuario.nombre}</span>
@@ -4045,6 +4059,21 @@ function CampoTab({ usuario, rol, toast }) {
     return () => window.removeEventListener('online', syncHuerfanas);
   }, []);
 
+  // Presencia: latido cada 60s mientras se está dentro del operativo
+  const [presencia, setPresencia] = useState([]);
+  useEffect(() => {
+    if (!opId) { setPresencia([]); return; }
+    const ref = db.collection(collections.operativos).doc(opId).collection('presencia');
+    const beat = () => ref.doc(String(usuario.legajo)).set({
+      legajo: usuario.legajo, nombre: usuario.nombre, rol,
+      ultimaVez: new Date().toISOString(),
+    }).catch(() => {});
+    beat();
+    const t = setInterval(beat, 60000);
+    const u = ref.onSnapshot(s => setPresencia(s.docs.map(d => d.data())), () => {});
+    return () => { clearInterval(t); u(); };
+  }, [opId]);
+
   // Wake lock: que el teléfono no se bloquee mientras se carga
   useEffect(() => {
     if (!opId || !('wakeLock' in navigator)) return;
@@ -4222,6 +4251,20 @@ function CampoTab({ usuario, rol, toast }) {
 
   const f = filtro.trim().toLowerCase();
 
+  // Presencia y actividad por operador
+  const _ahora = Date.now();
+  const equipos = presencia
+    .map(p => ({ ...p, min: (_ahora - new Date(p.ultimaVez || 0).getTime()) / 60000 }))
+    .filter(p => p.min < 720) // ignora presencias de hace más de 12 h
+    .map(p => {
+      const propias = asigs.filter(a => a.cargadoPor && String(a.cargadoPor.legajo) === String(p.legajo));
+      const ultima = propias.reduce((m, a) => (a.cargadoEn && a.cargadoEn > m ? a.cargadoEn : m), '');
+      return { ...p, cargas: propias.length, ultimaCarga: ultima,
+        minCarga: ultima ? (_ahora - new Date(ultima).getTime()) / 60000 : null };
+    })
+    .sort((a, b) => a.min - b.min);
+  const enLinea = equipos.filter(p => p.min < 3);
+
   // Búsqueda de EFECTIVOS por apellido o LP (¿dónde está fulano?)
   const normB = (s) => (s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const qEf = filtro.trim();
@@ -4393,6 +4436,12 @@ function CampoTab({ usuario, rol, toast }) {
       </div>
       <div className="campo-barra-prog"><div style={{width: (totalCeldas ? Math.round(totalCargados / totalCeldas * 100) : 0) + '%'}}/></div>
 
+      {enLinea.length > 1 && (
+        <div style={{background:'#0f2a52',color:'#bcd3f5',padding:'6px 14px',fontSize:'11.5px',fontWeight:'600',display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
+          <span>👥</span>
+          <span><b style={{color:'#7fe3a1'}}>{enLinea.length} en línea:</b> {enLinea.map(p => p.nombre).join(', ')}</span>
+        </div>
+      )}
       {(!online || pendientes.length > 0) && (
         <div style={{background: !online ? '#b71c1c' : '#f9a825', color: !online ? '#fff' : '#3e2c00',
           padding:'7px 14px', fontSize:'12px', fontWeight:'700', display:'flex', alignItems:'center', gap:'8px'}}>
@@ -4542,6 +4591,27 @@ function CampoTab({ usuario, rol, toast }) {
                     <span style={{color:'#888'}}> · {hora(a.cargadoEn)}{a._pendiente ? ' · 🕐' : ''}{a.cargadoPor ? ' · por ' + a.cargadoPor.nombre : ''}</span>
                   </div>
                 ))}
+              </div>
+            )}
+            {equipos.length > 0 && !soloFaltantes && (
+              <div style={{background:'#fff',border:'1px solid #dde3ee',borderRadius:'10px',padding:'8px 12px',marginBottom:'10px'}}>
+                <div style={{fontSize:'10px',fontWeight:'800',color:'#1a3a6b',letterSpacing:'.5px',marginBottom:'5px'}}>👥 EQUIPOS DE CARGA</div>
+                {equipos.map(p => {
+                  const estado = p.min < 3 ? '🟢' : (p.min < 10 ? '🟡' : '⚪');
+                  const inactivo = abierto && p.min < 10 && p.cargas > 0 && p.minCarga !== null && p.minCarga > 20;
+                  return (
+                    <div key={p.legajo} style={{display:'flex',gap:'8px',alignItems:'baseline',fontSize:'12px',color:'#333',padding:'3px 0',flexWrap:'wrap'}}>
+                      <span>{estado}</span>
+                      <b style={{color:'#1a3a6b'}}>{p.nombre}</b>
+                      <span style={{color:'#888'}}>LP {p.legajo}{p.rol && p.rol !== 'operador' ? ' · ' + p.rol : ''}</span>
+                      <span style={{marginLeft:'auto',color:'#555'}}>
+                        {p.cargas} carga{p.cargas !== 1 ? 's' : ''}
+                        {p.ultimaCarga && <span style={{color:'#999'}}> · última {new Date(p.ultimaCarga).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}</span>}
+                      </span>
+                      {inactivo && <span style={{flexBasis:'100%',color:'#b26a00',fontSize:'11px',fontWeight:'700'}}>⚠️ En línea pero sin cargas hace {Math.round(p.minCarga)} min</span>}
+                    </div>
+                  );
+                })}
               </div>
             )}
             {secciones.map(sec => {
@@ -5199,6 +5269,11 @@ function App() {
 
   const [publicando, setPublicando] = useState(false);
   const [sbOpen, setSbOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem('mesa-dist-dark') === '1'; } catch(e) { return false; } });
+  useEffect(() => {
+    document.body.classList.toggle('dark', darkMode);
+    try { localStorage.setItem('mesa-dist-dark', darkMode ? '1' : '0'); } catch(e) {}
+  }, [darkMode]);
   const handlePublicarCampo = async () => {
     if (!estadioNombre) { toast('Seleccioná el estadio antes de publicar.','error'); return; }
     if (!evento.fecha) { toast('Completá la fecha del evento.','error'); return; }
@@ -5521,7 +5596,8 @@ function App() {
       {sbOpen && <div className="sb-backdrop" onClick={()=>setSbOpen(false)}/>}
       <Sidebar usuario={usuario} rol={rol} tab={tab} onTab={setTab}
         historialCount={historial.length} onLogout={handleLogout}
-        open={sbOpen} onClose={()=>setSbOpen(false)}/>
+        open={sbOpen} onClose={()=>setSbOpen(false)}
+        dark={darkMode} onToggleDark={()=>setDarkMode(d=>!d)}/>
       <div className="main">
       {ActivityBanner}
 
