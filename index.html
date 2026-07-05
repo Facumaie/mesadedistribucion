@@ -3574,7 +3574,18 @@ function AsignarModal({ puesto, slot, nomina, asignaciones, lpEnOtros = {}, onCo
   const [manual, setManual] = useState(false);
   const [mData, setMData] = useState({ grado:'', apellido:'', nombre:'', tel:'' });
   const [guardando, setGuardando] = useState(false);
+  const [modoTexto, setModoTexto] = useState(false); // false = teclado numérico (LP), true = letras (apellido)
   const inpRef = useRef(null);
+
+  const alternarTeclado = () => {
+    setModoTexto(m => {
+      const nuevo = !m;
+      if (!nuevo) buscar(lp.replace(/\D/g, '')); // al volver a numérico, limpiar letras
+      return nuevo;
+    });
+    // blur + focus para que Android cambie el teclado
+    setTimeout(() => { if (inpRef.current) { inpRef.current.blur(); inpRef.current.focus(); } }, 40);
+  };
 
   // Al avanzar en cadena a otra celda, el modal se resetea y vuelve a enfocar
   useEffect(() => {
@@ -3636,12 +3647,25 @@ function AsignarModal({ puesto, slot, nomina, asignaciones, lpEnOtros = {}, onCo
         </div>
         <div style={{padding:'16px'}}>
           {!manual ? (<>
-            <label className="campo-label">LEGAJO O APELLIDO</label>
-            <input ref={inpRef} type="text" autoCapitalize="characters" autoComplete="off"
-              placeholder="Ej: 21458 o GONZÁLEZ"
-              value={lp} onChange={e => buscar(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && (resultados.length === 1 ? elegir(resultados[0]) : confirmar())}
-              className="campo-input-lp" style={{fontSize:'17px',letterSpacing:'1px'}}/>
+            <label className="campo-label">{modoTexto ? 'APELLIDO' : 'LEGAJO (LP)'}</label>
+            <div style={{display:'flex',gap:'8px',alignItems:'stretch'}}>
+              <input ref={inpRef} type="text" autoComplete="off"
+                inputMode={modoTexto ? 'text' : 'numeric'}
+                pattern={modoTexto ? undefined : '[0-9]*'}
+                autoCapitalize={modoTexto ? 'characters' : 'off'}
+                placeholder={modoTexto ? 'Ej: GONZÁLEZ' : 'Ej: 21458'}
+                value={lp}
+                onChange={e => buscar(modoTexto ? e.target.value : e.target.value.replace(/\D/g, ''))}
+                onKeyDown={e => e.key === 'Enter' && (resultados.length === 1 ? elegir(resultados[0]) : confirmar())}
+                className="campo-input-lp"
+                style={modoTexto ? {fontSize:'17px',letterSpacing:'1px',flex:1,minWidth:0} : {flex:1,minWidth:0}}/>
+              <button onClick={alternarTeclado} title={modoTexto ? 'Teclado numérico (LP)' : 'Teclado de letras (apellido)'}
+                style={{flexShrink:0,width:'58px',border:'1.5px solid #b9c6dd',borderRadius:'10px',
+                  background:'#eef4ff',color:'#12336a',fontWeight:'800',fontSize:'13px',cursor:'pointer'}}>
+                {modoTexto ? '123' : 'ABC'}
+              </button>
+            </div>
+            {!modoTexto && <div style={{fontSize:'10.5px',color:'#8a99b5',marginTop:'5px'}}>Tocá <b>ABC</b> para buscar por apellido.</div>}
             {resultados.length > 0 && !match && (
               <div style={{marginTop:'8px',border:'1px solid #ccd3e0',borderRadius:'10px',overflow:'hidden',maxHeight:'240px',overflowY:'auto'}}>
                 {resultados.map(ef => (
