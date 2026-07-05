@@ -4789,6 +4789,13 @@ function AdminTab({ usuario, toast }) {
   const [config, setConfig] = useState({});
   const [logVer, setLogVer] = useState(null);
   const [logItems, setLogItems] = useState([]);
+  const [secAdmin, setSecAdmin] = useState({ operativos: true, nomina: false, usuarios: false, prefs: false });
+  const toggleSec = (k) => setSecAdmin(s => ({ ...s, [k]: !s[k] }));
+  const [editUserId, setEditUserId] = useState(null);
+  const [telCand, setTelCand] = useState(null);   // null = sin buscar, [] = sin resultados
+  const [telSel, setTelSel] = useState({});
+  const [buscandoTel, setBuscandoTel] = useState(false);
+  const [aplicandoTel, setAplicandoTel] = useState(false);
   const [form, setForm] = useState({ legajo:'', nombre:'', jerarquia:'', password:'', rol:'operador' });
   const [nominaMeta, setNominaMeta] = useState(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -4811,18 +4818,40 @@ function AdminTab({ usuario, toast }) {
   const altaUsuario = async () => {
     const lp = form.legajo.trim();
     if (!lp || !form.nombre.trim() || !form.password.trim()) { toast('Legajo, nombre y clave son obligatorios.', 'error'); return; }
-    if (USUARIOS_AUTORIZADOS[lp]) { toast('Ese legajo ya existe como usuario de la Mesa.', 'error'); return; }
-    if (usuarios.find(u => u.legajo === lp)) { toast('Ese legajo ya está dado de alta.', 'error'); return; }
     try {
-      await db.collection(collections.usuarios).doc(lp).set({
-        legajo: lp, nombre: form.nombre.trim().toUpperCase(), jerarquia: form.jerarquia.trim(),
-        password: form.password.trim(), rol: form.rol, activo: true,
-        creadoPor: { legajo: usuario.legajo, nombre: usuario.nombre },
-        creadoEn: new Date().toISOString(),
-      });
+      if (editUserId) {
+        // Edición de un usuario existente
+        await db.collection(collections.usuarios).doc(editUserId).update({
+          nombre: form.nombre.trim().toUpperCase(), jerarquia: form.jerarquia.trim(),
+          password: form.password.trim(), rol: form.rol,
+          editadoPor: { legajo: usuario.legajo, nombre: usuario.nombre },
+          editadoEn: new Date().toISOString(),
+        });
+        toast('✓ Usuario actualizado', 'success');
+      } else {
+        if (USUARIOS_AUTORIZADOS[lp]) { toast('Ese legajo ya existe como usuario de la Mesa. Importalo primero para poder editarlo.', 'error'); return; }
+        if (usuarios.find(u => u.legajo === lp)) { toast('Ese legajo ya está dado de alta. Usá el lápiz para editarlo.', 'error'); return; }
+        await db.collection(collections.usuarios).doc(lp).set({
+          legajo: lp, nombre: form.nombre.trim().toUpperCase(), jerarquia: form.jerarquia.trim(),
+          password: form.password.trim(), rol: form.rol, activo: true,
+          creadoPor: { legajo: usuario.legajo, nombre: usuario.nombre },
+          creadoEn: new Date().toISOString(),
+        });
+        toast('✓ Usuario creado', 'success');
+      }
       setForm({ legajo:'', nombre:'', jerarquia:'', password:'', rol:'operador' });
-      toast('✓ Usuario creado', 'success');
+      setEditUserId(null);
     } catch (err) { toast('Error: ' + err.message, 'error'); }
+  };
+
+  const editarUsuario = (u) => {
+    setForm({ legajo: u.legajo, nombre: u.nombre || '', jerarquia: u.jerarquia || '',
+      password: u.password || '', rol: u.rol || 'operador' });
+    setEditUserId(u.id);
+  };
+  const cancelarEdicion = () => {
+    setForm({ legajo:'', nombre:'', jerarquia:'', password:'', rol:'operador' });
+    setEditUserId(null);
   };
 
   const toggleActivo = async (u) => {
@@ -4847,6 +4876,53 @@ function AdminTab({ usuario, toast }) {
       toast(`✓ Nómina actualizada: ${res.count.toLocaleString('es-AR')} efectivos`, 'success');
     } catch (err) { toast('Error nómina: ' + err.message, 'error'); }
     finally { setSubiendo(false); if (fileRef.current) fileRef.current.value = ''; }
+  };
+
+  // Teléfonos recolectados en campo → nómina general
+  const buscarTelefonos = async () => {
+    setBuscandoTel(true);
+    try {
+      const { map } = await cargarNomina();
+      if (!map.size) { toast('Primero subí la nómina general.', 'error'); setBuscandoTel(false); return; }
+      const cand = {};
+      for (const o of operativos) {
+        const snap = await db.collection(collections.operativos).doc(o.id).collection('asignaciones').get();
+        snap.docs.forEach(d => {
+          const a = d.data();
+          const tel = String(a.tel || '').trim();
+          if (!a.lp || !tel) return;
+          const en = map.get(String(a.lp));
+          if (!en || (en.tel && en.tel.trim())) return; // no figura en nómina, o ya tiene teléfono
+          const prev = cand[a.lp];
+          if (!prev || (a.cargadoEn || '') > (prev.cargadoEn || '')) {
+            cand[a.lp] = { lp: String(a.lp), tel, cargadoEn: a.cargadoEn || '',
+              apellido: en.apellido, nombre: en.nombre, grado: en.grado,
+              origen: `${o.estadio} · ${fmtFecha(o.fecha)}` };
+          }
+        });
+      }
+      const lista = Object.values(cand).sort((a, b) => (a.apellido || '').localeCompare(b.apellido || '', 'es'));
+      setTelCand(lista);
+      const sel = {}; lista.forEach(c => { sel[c.lp] = true; }); setTelSel(sel);
+      if (!lista.length) toast('No hay teléfonos nuevos para incorporar.', 'info');
+    } catch (err) { toast('Error: ' + err.message, 'error'); }
+    finally { setBuscandoTel(false); }
+  };
+
+  const aplicarTelefonos = async () => {
+    const elegidos = (telCand || []).filter(c => telSel[c.lp]);
+    if (!elegidos.length) { toast('No hay teléfonos seleccionados.', 'error'); return; }
+    if (!confirm(`Se van a incorporar ${elegidos.length} teléfono(s) a la nómina general.\n\nLa nómina se re-publica y todos los dispositivos la actualizan en su próxima apertura.\n\n¿Continuar?`)) return;
+    setAplicandoTel(true);
+    try {
+      const { map } = await cargarNomina();
+      elegidos.forEach(c => { const en = map.get(c.lp); if (en) en.tel = c.tel; });
+      const rows = Array.from(map.values()).map(e => [e.lp, e.grado, e.apellido, e.nombre, e.tel]);
+      await subirNominaFirestore(rows, usuario);
+      toast(`✓ ${elegidos.length} teléfono(s) incorporados a la nómina`, 'success');
+      setTelCand(null); setTelSel({});
+    } catch (err) { toast('Error: ' + err.message, 'error'); }
+    finally { setAplicandoTel(false); }
   };
 
   const importarFijos = async () => {
@@ -4900,10 +4976,50 @@ function AdminTab({ usuario, toast }) {
   const inp = { width:'100%', padding:'9px 11px', border:'1.5px solid #ccd3e0', borderRadius:'8px', fontSize:'13px', boxSizing:'border-box', marginTop:'6px' };
   return (
     <div style={{maxWidth:'860px', margin:'0 auto', padding:'16px 14px 40px'}}>
+      {/* OPERATIVOS */}
+      <div className="card" style={{marginTop:'16px'}}>
+        <div className="card-header" style={{cursor:'pointer',userSelect:'none'}} onClick={() => toggleSec('operativos')}><span>{secAdmin.operativos ? '▾ ' : '▸ '}📡 OPERATIVOS PUBLICADOS</span>
+          <span className="counter-pill">{operativos.length}</span>
+        </div>
+        {secAdmin.operativos && <div className="card-body">
+          {operativos.length === 0 && <div className="empty-state">Sin operativos. Publicá uno desde "Distribución Previa".</div>}
+          {operativos.map(o => (
+            <div key={o.id} style={{display:'flex',alignItems:'center',gap:'10px',padding:'8px 4px',borderBottom:'1px solid #eef1f6',flexWrap:'wrap'}}>
+              <div style={{flex:1,minWidth:'200px'}}>
+                <b style={{color:'#1a3a6b'}}>{o.estadio}</b> · {o.partido || '—'} · {fmtFecha(o.fecha)}
+                <div style={{fontSize:'11px',color:'#888'}}>
+                  {(o.puestos||[]).length} puestos · {(o.puestos||[]).reduce((s,p)=>s+(p.celdas||0),0)} celdas
+                  {o.creadoPor && <> · publicado por {o.creadoPor.nombre}</>}
+                </div>
+              </div>
+              <span className="badge" style={{background: o.estado==='abierto' ? '#2e7d32' : '#9e9e9e', color:'#fff'}}>{o.estado === 'abierto' ? 'ABIERTO' : 'CERRADO'}</span>
+              <button className="btn btn-sm btn-secondary" onClick={() => verLog(o)}>{logVer === o.id ? '📜 Ocultar' : '📜 Log'}</button>
+              <button className="btn btn-sm btn-secondary" onClick={() => toggleOperativo(o)}>{o.estado === 'abierto' ? '⏸ Cerrar' : '▶ Reabrir'}</button>
+              <button className="btn btn-sm btn-danger" onClick={() => borrarOperativo(o)}>🗑</button>
+              {logVer === o.id && (
+                <div style={{flexBasis:'100%',background:'#f7f9fc',border:'1px solid #e2e7f0',borderRadius:'10px',padding:'8px 12px',marginTop:'4px'}}>
+                  <div style={{fontSize:'11px',fontWeight:'800',color:'#1a3a6b',marginBottom:'4px'}}>📜 CAMBIOS EN CAMPO (últimos {logItems.length})</div>
+                  {logItems.length === 0 && <div style={{fontSize:'12px',color:'#888'}}>Sin cambios de estructura ni quitas registradas.</div>}
+                  {logItems.map((l, i) => {
+                    const ic = { 'celda+':'➕', 'celda-':'➖', 'puesto+':'🆕', 'puesto-':'🗑', 'quitar':'↩️', 'jefe':'👤' }[l.tipo] || '·';
+                    return (
+                      <div key={i} style={{fontSize:'12px',color:'#333',padding:'3px 0',borderBottom:'1px solid #eef1f6'}}>
+                        {ic} {l.detalle}
+                        <span style={{color:'#888'}}> — {l.por ? l.por.nombre + ' (' + l.por.legajo + ')' : '—'} · {l.ts ? new Date(l.ts).toLocaleString('es-AR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : ''}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>}
+      </div>
+
       {/* NÓMINA */}
       <div className="card">
-        <div className="card-header"><span>📚 NÓMINA GENERAL</span></div>
-        <div className="card-body">
+        <div className="card-header" style={{cursor:'pointer',userSelect:'none'}} onClick={() => toggleSec('nomina')}><span>{secAdmin.nomina ? '▾ ' : '▸ '}📚 NÓMINA GENERAL</span></div>
+        {secAdmin.nomina && <div className="card-body">
           {nominaMeta ? (
             <div style={{fontSize:'13px',color:'#333',marginBottom:'10px'}}>
               <b>{(nominaMeta.count || 0).toLocaleString('es-AR')}</b> efectivos cargados
@@ -4917,18 +5033,54 @@ function AdminTab({ usuario, toast }) {
             {subiendo ? '⏳ Subiendo...' : (nominaMeta ? '🔄 Reemplazar nómina (Excel)' : '⬆ Subir nómina (Excel)')}
           </button>
           <div style={{fontSize:'11px',color:'#888',marginTop:'8px'}}>Formato esperado: columnas LP · Jerarquía · Apellido · Nombre · Destino · DNI · Teléfonos (sin encabezado o con encabezado, da igual).</div>
-        </div>
+
+          <div style={{marginTop:'14px',borderTop:'1px solid #eef1f6',paddingTop:'12px'}}>
+            <button className="btn btn-secondary" disabled={buscandoTel || subiendo || aplicandoTel} onClick={buscarTelefonos}>
+              {buscandoTel ? '⏳ Revisando operativos...' : '📞 Buscar teléfonos recolectados en campo'}
+            </button>
+            <div style={{fontSize:'11px',color:'#888',marginTop:'6px'}}>Revisa los operativos recientes y detecta efectivos sin teléfono en la nómina a los que se les cargó uno a mano durante la carga.</div>
+
+            {telCand && telCand.length > 0 && (
+              <div style={{marginTop:'12px'}}>
+                <div style={{fontSize:'12px',fontWeight:'800',color:'#1a3a6b',marginBottom:'6px'}}>
+                  TELÉFONOS NUEVOS ENCONTRADOS ({telCand.length})
+                </div>
+                <div style={{maxHeight:'260px',overflowY:'auto',border:'1px solid #e2e7f0',borderRadius:'10px'}}>
+                  {telCand.map(c => (
+                    <label key={c.lp} style={{display:'flex',alignItems:'baseline',gap:'9px',padding:'8px 12px',borderBottom:'1px solid #eef1f6',cursor:'pointer',fontSize:'12.5px'}}>
+                      <input type="checkbox" checked={!!telSel[c.lp]} style={{width:'16px',height:'16px',flexShrink:0,alignSelf:'center'}}
+                        onChange={e => setTelSel(s => ({...s, [c.lp]: e.target.checked}))}/>
+                      <span style={{flex:1,minWidth:0}}>
+                        <b style={{color:'#1a3a6b'}}>{c.apellido}, {c.nombre}</b>
+                        <span style={{color:'#888'}}> · {c.grado} · LP {c.lp}</span>
+                      </span>
+                      <span style={{fontFamily:'monospace',fontWeight:'700',color:'#1b5e20',flexShrink:0}}>{c.tel}</span>
+                      <span style={{fontSize:'10.5px',color:'#999',flexShrink:0}}>{c.origen}</span>
+                    </label>
+                  ))}
+                </div>
+                <button className="btn btn-success" style={{marginTop:'10px'}} disabled={aplicandoTel} onClick={aplicarTelefonos}>
+                  {aplicandoTel ? '⏳ Actualizando nómina...' : `✓ Incorporar ${Object.values(telSel).filter(Boolean).length} a la nómina`}
+                </button>
+              </div>
+            )}
+            {telCand && telCand.length === 0 && (
+              <div style={{marginTop:'10px',fontSize:'12px',color:'#2e7d32'}}>✓ No hay teléfonos pendientes de incorporar.</div>
+            )}
+          </div>
+        </div>}
       </div>
 
       {/* USUARIOS CON PERMISO */}
       <div className="card" style={{marginTop:'16px'}}>
-        <div className="card-header"><span>👥 USUARIOS CON PERMISO</span>
+        <div className="card-header" style={{cursor:'pointer',userSelect:'none'}} onClick={() => toggleSec('usuarios')}><span>{secAdmin.usuarios ? '▾ ' : '▸ '}👥 USUARIOS CON PERMISO</span>
           <span className="counter-pill">{usuarios.length + Object.keys(USUARIOS_AUTORIZADOS).length}</span>
         </div>
-        <div className="card-body">
+        {secAdmin.usuarios && <div className="card-body">
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:'8px',marginBottom:'10px'}}>
             <div><label style={{fontSize:'11px',fontWeight:'700',color:'#1a3a6b'}}>LEGAJO *</label>
-              <input style={inp} inputMode="numeric" value={form.legajo} onChange={e => setForm(fm => ({...fm, legajo: e.target.value.replace(/\D/g,'')}))}/></div>
+              <input style={{...inp, ...(editUserId ? {background:'#eef1f6',color:'#888'} : {})}} inputMode="numeric" value={form.legajo} disabled={!!editUserId}
+                onChange={e => setForm(fm => ({...fm, legajo: e.target.value.replace(/\D/g,'')}))}/></div>
             <div><label style={{fontSize:'11px',fontWeight:'700',color:'#1a3a6b'}}>APELLIDO Y NOMBRE *</label>
               <input style={inp} value={form.nombre} onChange={e => setForm(fm => ({...fm, nombre: e.target.value}))}/></div>
             <div><label style={{fontSize:'11px',fontWeight:'700',color:'#1a3a6b'}}>JERARQUÍA</label>
@@ -4941,7 +5093,13 @@ function AdminTab({ usuario, toast }) {
                 <option value="planificador">Planificador (acceso total)</option>
               </select></div>
           </div>
-          <button className="btn btn-success" onClick={altaUsuario}>➕ Dar de alta</button>
+          {editUserId && (
+            <div style={{fontSize:'12px',color:'#b26a00',background:'#fff8e1',padding:'7px 11px',borderRadius:'8px',marginBottom:'8px'}}>
+              ✏️ Editando al usuario <b>LP {editUserId}</b> — modificá los campos y guardá.
+            </div>
+          )}
+          <button className="btn btn-success" onClick={altaUsuario}>{editUserId ? '💾 Guardar cambios' : '➕ Dar de alta'}</button>
+          {editUserId && <button className="btn btn-secondary" style={{marginLeft:'8px'}} onClick={cancelarEdicion}>Cancelar</button>}
 
           <div style={{marginTop:'14px'}}>
             <input style={{...inp, maxWidth:'320px', marginTop:0}} type="text" placeholder="🔍 Filtrar por legajo o nombre..."
@@ -4976,7 +5134,8 @@ function AdminTab({ usuario, toast }) {
                               {u.activo === false ? 'Inactivo' : 'Activo'}
                             </button>
                           </td>
-                          <td style={{textAlign:'center'}}>
+                          <td style={{textAlign:'center',whiteSpace:'nowrap'}}>
+                            <button className="btn btn-sm btn-secondary" style={{marginRight:'4px'}} title="Editar usuario" onClick={() => editarUsuario(u)}>✏️</button>
                             <button className="btn btn-sm btn-danger" onClick={() => borrarUsuario(u)}>🗑</button>
                           </td>
                         </tr>
@@ -5026,59 +5185,19 @@ function AdminTab({ usuario, toast }) {
               })()}
             </>);
           })()}
-        </div>
+        </div>}
       </div>
 
       {/* PREFERENCIAS DE CAMPO */}
       <div className="card" style={{marginTop:'16px'}}>
-        <div className="card-header"><span>⚙️ PREFERENCIAS DE CAMPO</span></div>
-        <div className="card-body">
+        <div className="card-header" style={{cursor:'pointer',userSelect:'none'}} onClick={() => toggleSec('prefs')}><span>{secAdmin.prefs ? '▾ ' : '▸ '}⚙️ PREFERENCIAS DE CAMPO</span></div>
+        {secAdmin.prefs && <div className="card-body">
           <label style={{display:'flex',alignItems:'center',gap:'10px',fontSize:'13px',color:'#333',cursor:'pointer',userSelect:'none'}}>
             <input type="checkbox" checked={!!config.exigirAvisados} onChange={toggleExigirAvisados} style={{width:'18px',height:'18px'}}/>
             <span><b>Exigir checklist completo para finalizar</b> — no se puede cerrar un operativo hasta que todos los efectivos cargados estén marcados como avisados (✅) en la Vista.</span>
           </label>
           <div style={{fontSize:'11px',color:'#888',marginTop:'6px'}}>Si está desactivado, al finalizar solo se muestra una advertencia con la cantidad de efectivos sin avisar.</div>
-        </div>
-      </div>
-
-      {/* OPERATIVOS */}
-      <div className="card" style={{marginTop:'16px'}}>
-        <div className="card-header"><span>📡 OPERATIVOS PUBLICADOS</span>
-          <span className="counter-pill">{operativos.length}</span>
-        </div>
-        <div className="card-body">
-          {operativos.length === 0 && <div className="empty-state">Sin operativos. Publicá uno desde "Distribución Previa".</div>}
-          {operativos.map(o => (
-            <div key={o.id} style={{display:'flex',alignItems:'center',gap:'10px',padding:'8px 4px',borderBottom:'1px solid #eef1f6',flexWrap:'wrap'}}>
-              <div style={{flex:1,minWidth:'200px'}}>
-                <b style={{color:'#1a3a6b'}}>{o.estadio}</b> · {o.partido || '—'} · {fmtFecha(o.fecha)}
-                <div style={{fontSize:'11px',color:'#888'}}>
-                  {(o.puestos||[]).length} puestos · {(o.puestos||[]).reduce((s,p)=>s+(p.celdas||0),0)} celdas
-                  {o.creadoPor && <> · publicado por {o.creadoPor.nombre}</>}
-                </div>
-              </div>
-              <span className="badge" style={{background: o.estado==='abierto' ? '#2e7d32' : '#9e9e9e', color:'#fff'}}>{o.estado === 'abierto' ? 'ABIERTO' : 'CERRADO'}</span>
-              <button className="btn btn-sm btn-secondary" onClick={() => verLog(o)}>{logVer === o.id ? '📜 Ocultar' : '📜 Log'}</button>
-              <button className="btn btn-sm btn-secondary" onClick={() => toggleOperativo(o)}>{o.estado === 'abierto' ? '⏸ Cerrar' : '▶ Reabrir'}</button>
-              <button className="btn btn-sm btn-danger" onClick={() => borrarOperativo(o)}>🗑</button>
-              {logVer === o.id && (
-                <div style={{flexBasis:'100%',background:'#f7f9fc',border:'1px solid #e2e7f0',borderRadius:'10px',padding:'8px 12px',marginTop:'4px'}}>
-                  <div style={{fontSize:'11px',fontWeight:'800',color:'#1a3a6b',marginBottom:'4px'}}>📜 CAMBIOS EN CAMPO (últimos {logItems.length})</div>
-                  {logItems.length === 0 && <div style={{fontSize:'12px',color:'#888'}}>Sin cambios de estructura ni quitas registradas.</div>}
-                  {logItems.map((l, i) => {
-                    const ic = { 'celda+':'➕', 'celda-':'➖', 'puesto+':'🆕', 'puesto-':'🗑', 'quitar':'↩️', 'jefe':'👤' }[l.tipo] || '·';
-                    return (
-                      <div key={i} style={{fontSize:'12px',color:'#333',padding:'3px 0',borderBottom:'1px solid #eef1f6'}}>
-                        {ic} {l.detalle}
-                        <span style={{color:'#888'}}> — {l.por ? l.por.nombre + ' (' + l.por.legajo + ')' : '—'} · {l.ts ? new Date(l.ts).toLocaleString('es-AR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : ''}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        </div>}
       </div>
     </div>
   );
