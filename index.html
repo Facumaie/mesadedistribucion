@@ -596,7 +596,7 @@ const USUARIOS_AUTORIZADOS = {
 // ═══════════════════════════════════════════════════════════════
 
 // Versión de la app: se muestra en el login y el sidebar, y permite detectar actualizaciones
-const APP_VERSION = 'v2.5.1';
+const APP_VERSION = 'v2.5.3';
 
 // Legajos con rol ADMIN (acceso total + panel Admin)
 const ADMIN_LEGAJOS = new Set(['27844']);
@@ -3978,6 +3978,7 @@ function DetalleAsigModal({ asig, puesto, operativoId, usuario, rol, onClose, on
 
 function EditarJefeModal({ puesto, nomina, jefesQth = [], onGuardar, onClose, toast }) {
   const [datos, setDatos] = useState({
+    nombre: puesto.nombre || '', descripcion: puesto.descripcion || '',
     jefeRango: puesto.jefeRango || '', jefeNombre: puesto.jefeNombre || '', jefeTel: puesto.jefeTel || '',
     tipo: puesto.tipo || '',
   });
@@ -4060,8 +4061,10 @@ function EditarJefeModal({ puesto, nomina, jefesQth = [], onGuardar, onClose, to
   };
 
   const guardar = async () => {
+    if (!datos.nombre.trim()) { toast('El nombre del puesto/QTH no puede quedar vacío.', 'error'); return; }
     setGuardando(true);
     await onGuardar({
+      nombre: datos.nombre.trim(), descripcion: datos.descripcion.trim(),
       jefeRango: datos.jefeRango.trim(), jefeNombre: datos.jefeNombre.trim(), jefeTel: datos.jefeTel.trim(),
       tipo: datos.tipo || '',
     });
@@ -4076,7 +4079,12 @@ function EditarJefeModal({ puesto, nomina, jefesQth = [], onGuardar, onClose, to
           <div style={{fontWeight:'800',fontSize:'15px'}}>✏️ Editar puesto — {puesto.nombre}</div>
         </div>
         <div style={{padding:'16px'}}>
-          <label className="campo-label">TIPO DE PUESTO</label>
+          <label className="campo-label">NOMBRE / QTH *</label>
+          <input type="text" value={datos.nombre} placeholder="Ej: Av. Monroe y Húsares"
+            onChange={e => setDatos(d => ({...d, nombre: e.target.value}))} className="campo-input" style={{marginTop:0}}/>
+          <input type="text" value={datos.descripcion} placeholder="Descripción (opcional)"
+            onChange={e => setDatos(d => ({...d, descripcion: e.target.value}))} className="campo-input"/>
+          <label className="campo-label" style={{marginTop:'12px'}}>TIPO DE PUESTO</label>
           <select value={datos.tipo} onChange={e => setDatos(d => ({...d, tipo: e.target.value}))}
             className="campo-input" style={{marginTop:0,marginBottom:'14px'}}>
             <option value="">— Sin tipo —</option>
@@ -4140,9 +4148,9 @@ function EditarJefeModal({ puesto, nomina, jefesQth = [], onGuardar, onClose, to
           <label className="campo-label" style={{marginTop:'12px'}}>TELÉFONO</label>
           <input type="text" inputMode="tel" value={datos.jefeTel} onChange={e => setDatos(d => ({...d, jefeTel: e.target.value}))} className="campo-input" style={{marginTop:0}}/>
           <button className="campo-btn-main" disabled={guardando} onClick={guardar}>
-            {guardando ? '⏳ Guardando...' : '✓ GUARDAR JEFE'}
+            {guardando ? '⏳ Guardando...' : '✓ GUARDAR PUESTO'}
           </button>
-          <div style={{fontSize:'11px',color:'#888',marginTop:'8px',textAlign:'center'}}>Dejá los campos vacíos para quitar el jefe del puesto.</div>
+          <div style={{fontSize:'11px',color:'#888',marginTop:'8px',textAlign:'center'}}>Dejá los campos del jefe vacíos para quitarlo del puesto.</div>
           <button className="campo-btn-ghost" onClick={onClose}>Cancelar</button>
         </div>
       </div>
@@ -4191,6 +4199,44 @@ function NuevoPuestoModal({ seccion, onGuardar, onClose, toast }) {
           </div>
           <button className="campo-btn-main" disabled={guardando} onClick={guardar}>
             {guardando ? '⏳ Guardando...' : '✓ AGREGAR PUESTO'}
+          </button>
+          <button className="campo-btn-ghost" onClick={onClose}>Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditarEventoModal({ operativo, onGuardar, onClose, toast }) {
+  const [datos, setDatos] = useState({ partido: operativo.partido || '', fecha: operativo.fecha || '' });
+  const [guardando, setGuardando] = useState(false);
+  const inpRef = useRef(null);
+  useEffect(() => { setTimeout(() => inpRef.current && inpRef.current.focus(), 60); }, []);
+  const guardar = async () => {
+    if (!datos.fecha) { toast('Completá la fecha del evento.', 'error'); return; }
+    setGuardando(true);
+    await onGuardar({ partido: datos.partido.trim(), fecha: datos.fecha });
+    setGuardando(false);
+  };
+  return (
+    <div className="campo-modal-bg" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="campo-modal">
+        <div className="campo-modal-head">
+          <div style={{fontSize:'11px',opacity:.8}}>{operativo.estadio}</div>
+          <div style={{fontWeight:'800',fontSize:'15px'}}>✏️ Editar evento</div>
+        </div>
+        <div style={{padding:'16px'}}>
+          <label className="campo-label">NOMBRE DEL EVENTO / PARTIDO</label>
+          <input ref={inpRef} type="text" placeholder="Ej: River vs. Boca" value={datos.partido}
+            onChange={e => setDatos(d => ({...d, partido: e.target.value}))} className="campo-input" style={{marginTop:0}}/>
+          <label className="campo-label" style={{marginTop:'10px'}}>FECHA *</label>
+          <input type="date" value={datos.fecha}
+            onChange={e => setDatos(d => ({...d, fecha: e.target.value}))} className="campo-input" style={{marginTop:0}}/>
+          <div style={{marginTop:'10px',fontSize:'11.5px',color:'#8a6d00',background:'#fff8e1',padding:'8px 10px',borderRadius:'8px'}}>
+            El cambio impacta en el listado, el PDF y el control de doble afectación (que compara operativos del mismo día).
+          </div>
+          <button className="campo-btn-main" disabled={guardando} onClick={guardar}>
+            {guardando ? '⏳ Guardando...' : '✓ GUARDAR CAMBIOS'}
           </button>
           <button className="campo-btn-ghost" onClick={onClose}>Cancelar</button>
         </div>
@@ -4659,15 +4705,38 @@ function CampoTab({ usuario, rol, toast, jefesQth = [] }) {
         const i = puestos.findIndex(x => x.pid === p.pid);
         if (i === -1) throw new Error('Puesto no encontrado.');
         puestos[i] = { ...puestos[i],
+          nombre: datos.nombre || puestos[i].nombre,
+          descripcion: datos.descripcion || '',
           jefeRango: datos.jefeRango || null,
           jefeNombre: datos.jefeNombre || null,
           jefeTel: datos.jefeTel || null,
           tipo: datos.tipo || null };
         tx.update(ref, { puestos, ultimaModPuestos: { legajo: usuario.legajo, nombre: usuario.nombre, ts: new Date().toISOString() } });
       });
-      const cambioTipo = (datos.tipo || null) !== (p.tipo || null) ? ` · Tipo → ${datos.tipo || '(sin tipo)'}` : '';
-      logOperativo(opId, 'jefe', `${p.nombre}: Jefe → ${datos.jefeNombre ? [datos.jefeRango, datos.jefeNombre].filter(Boolean).join(' ') : '(sin jefe)'}${cambioTipo}`, usuario);
+      const cambios = [];
+      if (datos.nombre && datos.nombre !== p.nombre) cambios.push(`QTH "${p.nombre}" → "${datos.nombre}"`);
+      const jefeAntes = p.jefeNombre || null, jefeAhora = datos.jefeNombre || null;
+      if (jefeAntes !== jefeAhora || (p.jefeRango || null) !== (datos.jefeRango || null))
+        cambios.push(`Jefe → ${jefeAhora ? [datos.jefeRango, datos.jefeNombre].filter(Boolean).join(' ') : '(sin jefe)'}`);
+      if ((datos.tipo || null) !== (p.tipo || null)) cambios.push(`Tipo → ${datos.tipo || '(sin tipo)'}`);
+      if (cambios.length) logOperativo(opId, 'jefe', `${datos.nombre || p.nombre}: ${cambios.join(' · ')}`, usuario);
       toast('✓ Puesto actualizado', 'success');
+    } catch (err) { toast('Error: ' + err.message, 'error'); }
+  };
+
+  const editarEvento = async (datos) => {
+    try {
+      const ref = db.collection(collections.operativos).doc(opId);
+      await ref.update({
+        partido: datos.partido || '',
+        fecha: datos.fecha,
+        ultimaModEvento: { legajo: usuario.legajo, nombre: usuario.nombre, ts: new Date().toISOString() },
+      });
+      const cambios = [];
+      if ((datos.partido || '') !== (operativo.partido || '')) cambios.push(`Evento → ${datos.partido || '(sin nombre)'}`);
+      if (datos.fecha !== operativo.fecha) cambios.push(`Fecha → ${fmtFecha(datos.fecha)}`);
+      if (cambios.length) logOperativo(opId, 'evento', cambios.join(' · '), usuario);
+      toast('✓ Evento actualizado', 'success');
     } catch (err) { toast('Error: ' + err.message, 'error'); }
   };
 
@@ -4738,6 +4807,11 @@ function CampoTab({ usuario, rol, toast, jefesQth = [] }) {
           <div style={{fontWeight:'800',fontSize:'14px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{operativo.estadio} · {operativo.partido || ''}</div>
           <div style={{fontSize:'11px',opacity:.85}}>{fmtFecha(operativo.fecha)} · {abierto ? '🟢 Abierto' : '⚪ Cerrado'}</div>
         </div>
+        {(rol === 'admin' || rol === 'planificador') && (
+          <button className="campo-mini-btn" title="Editar nombre y fecha del evento"
+            style={{flexShrink:0,background:'rgba(255,255,255,.12)',color:'#fff',border:'1px solid rgba(255,255,255,.3)'}}
+            onClick={() => setModal({ tipo:'evento' })}>✏️</button>
+        )}
         <div style={{textAlign:'right'}}>
           <div style={{fontWeight:'900',fontSize:'18px'}}>{totalCargados}<span style={{fontSize:'12px',opacity:.8}}>/{totalCeldas}</span></div>
           <div style={{fontSize:'9px',opacity:.8,letterSpacing:'.5px'}}>CARGADOS</div>
@@ -4859,7 +4933,7 @@ function CampoTab({ usuario, rol, toast, jefesQth = [] }) {
                         <button className="campo-mini-btn" title="Quitar una celda" onClick={() => cambiarCeldas(p, -1)}>−</button>
                         <button className="campo-mini-btn" title="Agregar una celda" onClick={() => cambiarCeldas(p, 1)}>＋</button>
                         {(rol === 'admin' || rol === 'planificador') && <>
-                          <button className="campo-mini-btn" title="Editar puesto (tipo y jefe)" onClick={() => setModal({ tipo:'jefe', puesto:p })}>✏️</button>
+                          <button className="campo-mini-btn" title="Editar puesto (nombre, tipo y jefe)" onClick={() => setModal({ tipo:'jefe', puesto:p })}>✏️</button>
                           <button className="campo-mini-btn" style={{color:'#b71c1c'}} title="Eliminar puesto" onClick={() => eliminarPuesto(p)}>🗑</button>
                         </>}
                       </>}
@@ -5038,6 +5112,11 @@ function CampoTab({ usuario, rol, toast, jefesQth = [] }) {
             </div>
           </div>
         </div>
+      )}
+      {modal && modal.tipo === 'evento' && (
+        <EditarEventoModal operativo={operativo}
+          onGuardar={async (d) => { await editarEvento(d); setModal(null); }}
+          onClose={() => setModal(null)} toast={toast}/>
       )}
       {modal && modal.tipo === 'jefe' && (
         <EditarJefeModal puesto={modal.puesto} nomina={nomina || new Map()} jefesQth={jefesQth}
