@@ -596,7 +596,7 @@ const USUARIOS_AUTORIZADOS = {
 // ═══════════════════════════════════════════════════════════════
 
 // Versión de la app: se muestra en el login y el sidebar, y permite detectar actualizaciones
-const APP_VERSION = 'v2.4.0';
+const APP_VERSION = 'v2.5.1';
 
 // Legajos con rol ADMIN (acceso total + panel Admin)
 const ADMIN_LEGAJOS = new Set(['27844']);
@@ -4809,7 +4809,24 @@ function CampoTab({ usuario, rol, toast, jefesQth = [] }) {
           <button className="campo-btn-sm" style={{background:'#1b5e20'}} title="Compartir PDF por WhatsApp" onClick={() => generarPDF(true)}>📤</button>
         </>}
       </div>
-      {!abierto && <div className="campo-aviso" style={{margin:'8px 12px'}}>Operativo cerrado — solo lectura{rol==='admin' ? ' (podés reabrirlo desde Admin)' : ''}.</div>}
+      {!abierto && (
+        <div className="campo-aviso" style={{margin:'8px 12px',display:'flex',alignItems:'center',gap:'10px',flexWrap:'wrap'}}>
+          <span style={{flex:1,minWidth:'180px'}}>Operativo cerrado — solo lectura.</span>
+          <button className="campo-btn-sm" style={{minHeight:'34px',background:'#2e7d32'}}
+            onClick={async () => {
+              if (!confirm('¿Reabrir el operativo para seguir cargando?')) return;
+              try {
+                await db.collection(collections.operativos).doc(opId).update({
+                  estado: 'abierto',
+                  reabiertoPor: { legajo: usuario.legajo, nombre: usuario.nombre },
+                  reabiertoEn: new Date().toISOString(),
+                });
+                logOperativo(opId, 'reabrir', 'Operativo reabierto', usuario);
+                toast('✓ Operativo reabierto', 'success');
+              } catch (err) { toast('Error: ' + err.message, 'error'); }
+            }}>▶ Reabrir</button>
+        </div>
+      )}
 
       {vista === 'carga' && secciones.map(sec => {
         const pts = (operativo.puestos || []).filter(p => p.seccion === sec).filter(matchPuesto);
@@ -5263,7 +5280,7 @@ function AdminTab({ usuario, toast }) {
                   <div style={{fontSize:'11px',fontWeight:'800',color:'#1a3a6b',marginBottom:'4px'}}>📜 CAMBIOS EN CAMPO (últimos {logItems.length})</div>
                   {logItems.length === 0 && <div style={{fontSize:'12px',color:'#888'}}>Sin cambios de estructura ni quitas registradas.</div>}
                   {logItems.map((l, i) => {
-                    const ic = { 'celda+':'➕', 'celda-':'➖', 'puesto+':'🆕', 'puesto-':'🗑', 'quitar':'↩️', 'jefe':'👤' }[l.tipo] || '·';
+                    const ic = { 'celda+':'➕', 'celda-':'➖', 'puesto+':'🆕', 'puesto-':'🗑', 'quitar':'↩️', 'jefe':'👤', 'reabrir':'▶' }[l.tipo] || '·';
                     return (
                       <div key={i} style={{fontSize:'12px',color:'#333',padding:'3px 0',borderBottom:'1px solid #eef1f6'}}>
                         {ic} {l.detalle}
