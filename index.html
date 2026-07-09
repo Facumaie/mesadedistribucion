@@ -596,7 +596,7 @@ const USUARIOS_AUTORIZADOS = {
 // ═══════════════════════════════════════════════════════════════
 
 // Versión de la app: se muestra en el login y el sidebar, y permite detectar actualizaciones
-const APP_VERSION = 'v2.5.3';
+const APP_VERSION = 'v2.5.4';
 
 // Legajos con rol ADMIN (acceso total + panel Admin)
 const ADMIN_LEGAJOS = new Set(['27844']);
@@ -2438,13 +2438,41 @@ function PanelHistorial({ historial, estadioActual, onCargar, onVer, onEliminar,
 function SearchableJefeSelect({ jefes, value, onChange }) {
   const [search, setSearch] = React.useState('');
   const [open,   setOpen]   = React.useState(false);
+  const [pos,    setPos]    = React.useState(null);
   const ref = React.useRef(null);
+  const dropRef = React.useRef(null);
   const selected = jefes.find(j => j.id === value);
   React.useEffect(() => {
     function handler(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+  // El dropdown va con position:fixed para que no lo recorte el overflow:hidden
+  // de las cards ni el overflow-x de las tablas. Se cierra si se scrollea afuera.
+  const toggleOpen = () => {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect();
+      const ALTO = 265; // alto máx aprox del dropdown
+      const abajo = window.innerHeight - r.bottom;
+      const haciaArriba = abajo < ALTO && r.top > abajo;
+      setPos({
+        left: r.left, width: r.width,
+        ...(haciaArriba ? { bottom: window.innerHeight - r.top + 4 } : { top: r.bottom + 4 })
+      });
+    }
+    setOpen(o => !o);
+    setSearch('');
+  };
+  React.useEffect(() => {
+    if (!open) return;
+    const cerrar = (e) => {
+      if (dropRef.current && e.target instanceof Node && dropRef.current.contains(e.target)) return;
+      setOpen(false);
+    };
+    window.addEventListener('scroll', cerrar, true);
+    window.addEventListener('resize', cerrar);
+    return () => { window.removeEventListener('scroll', cerrar, true); window.removeEventListener('resize', cerrar); };
+  }, [open]);
   const filtered = jefes.filter(j =>
     !search ||
     (j.efectivo||'').toLowerCase().includes(search.toLowerCase()) ||
@@ -2455,14 +2483,16 @@ function SearchableJefeSelect({ jefes, value, onChange }) {
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
         border:'1px solid #ccc',borderRadius:'4px',padding:'6px 10px',
         background:'#fff',cursor:'pointer',minHeight:'34px',fontSize:'13px'}}
-        onClick={() => { setOpen(o => !o); setSearch(''); }}>
+        onClick={toggleOpen}>
         <span style={{color: selected ? '#111' : '#999'}}>
           {selected ? `${selected.jerarquia?'['+selected.jerarquia+'] ':''}${selected.efectivo}` : '— Sin jefe asignado —'}
         </span>
         <span style={{fontSize:'10px',color:'#999',marginLeft:'6px'}}>▼</span>
       </div>
-      {open && (
-        <div style={{position:'absolute',zIndex:999,top:'100%',left:0,right:0,
+      {open && pos && (
+        <div ref={dropRef} style={{position:'fixed',zIndex:9999,
+          left:pos.left,width:pos.width,
+          ...(pos.top !== undefined ? {top:pos.top} : {bottom:pos.bottom}),
           background:'#fff',border:'1px solid #ccc',borderRadius:'4px',
           boxShadow:'0 4px 12px rgba(0,0,0,.15)',maxHeight:'220px',overflow:'hidden',
           display:'flex',flexDirection:'column'}}>
