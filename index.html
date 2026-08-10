@@ -1292,7 +1292,15 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
   function mkCaratula() {
     const fechaFmt = evento.fecha ? fmtFecha(evento.fecha) : '';
 
-    // Estadísticas por tipo: misma lógica que EventoBar (celdas de allItems)
+    // ── Paleta institucional navy + dorado ──
+    const NAVY_DEEP = '0d1f3c';
+    const NAVY      = '1a3a6b';
+    const GOLD      = 'B8912E'; // filetes sobre fondo claro
+    const GOLD_LT   = 'E8C766'; // texto dorado sobre navy
+    const GOLD_DK   = 'A8862B'; // etiquetas sobre fondo claro
+    const DXA = WidthType.DXA;
+
+    // Estadísticas por tipo
     const _allItems  = [...qths, ...(infanteria||[]), ...(refuerzo||[]), ...(tercerAnillo||[])];
     const _cel = (tipo) => _allItems.filter(x => x.tipo === tipo).reduce((s,x) => s + (x.celdas||0), 0);
     const cntCREA    = _cel('CREA');
@@ -1303,16 +1311,23 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
     function sp(pts) {
       return new Paragraph({ spacing: { before: 0, after: pts }, children: [new TextRun({ text: '' })] });
     }
+    function emptyPara() {
+      return new Paragraph({ spacing: { before: 0, after: 0 }, children: [new TextRun({ text: '' })] });
+    }
 
-    // Banda coloreada full-ancho usando tabla
+    // Banda coloreada full-ancho (con filete inferior dorado opcional)
     function mkBandTable(bandRows) {
       return new Table({
-        width: { size: CW, type: WidthType.DXA },
+        width: { size: CW, type: DXA },
         rows: bandRows.map(r => new TableRow({
           height: { value: r.height || 500, rule: 'exact' },
           children: [new TableCell({
-            width: { size: CW, type: WidthType.DXA },
-            borders: bordNone,
+            width: { size: CW, type: DXA },
+            borders: {
+              top:    r.borderTop    ? { style: BorderStyle.SINGLE, size: r.borderTop.size||8,    color: r.borderTop.color } : bNone,
+              bottom: r.borderBottom ? { style: BorderStyle.SINGLE, size: r.borderBottom.size||8, color: r.borderBottom.color } : bNone,
+              left: bNone, right: bNone,
+            },
             shading: { fill: r.bg, type: ShadingType.CLEAR },
             verticalAlign: VerticalAlign.CENTER,
             margins: { top: 0, bottom: 0, left: 400, right: 400 },
@@ -1322,33 +1337,63 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
       });
     }
 
-    // Celda de estadística
+    // Ornamento central: ◇ ◆ ◇ en dorado
+    function mkOrnament(color) {
+      return new Paragraph({
+        alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
+        children: [new TextRun({ text: '\u25C7    \u25C6    \u25C7', font: FONT_BODY, size: 20, color: color || GOLD, characterSpacing: 40 })]
+      });
+    }
+
+    // Filete corto centrado (regla dorada fina, ancho acotado)
+    function mkShortRule(color, size, widthDxa) {
+      const W = widthDxa || 3600;
+      return new Table({
+        alignment: AlignmentType.CENTER,
+        width: { size: W, type: DXA },
+        columnWidths: [W],
+        rows: [new TableRow({
+          height: { value: 40, rule: 'exact' },
+          children: [new TableCell({
+            width: { size: W, type: DXA },
+            borders: { top: bNone, left: bNone, right: bNone,
+              bottom: { style: BorderStyle.SINGLE, size: size || 8, color: color || GOLD } },
+            children: [emptyPara()],
+          })]
+        })]
+      });
+    }
+
+    // ── Tarjeta de estadística (filete superior dorado, número navy, etiqueta dorada) ──
     function mkStatCell(label, value, width) {
+      const bSide = { style: BorderStyle.SINGLE, size: 2, color: 'D9E2F0' };
       return new TableCell({
-        width: { size: width, type: WidthType.DXA },
+        width: { size: width, type: DXA },
         borders: {
-          top:    { style: BorderStyle.SINGLE, size: 2, color: 'c8d8f0' },
-          bottom: { style: BorderStyle.SINGLE, size: 2, color: 'c8d8f0' },
-          left:   { style: BorderStyle.SINGLE, size: 2, color: 'c8d8f0' },
-          right:  { style: BorderStyle.SINGLE, size: 2, color: 'c8d8f0' },
+          top:    { style: BorderStyle.SINGLE, size: 14, color: GOLD },
+          bottom: bSide, left: bSide, right: bSide,
         },
-        shading: { fill: 'EBF2FA', type: ShadingType.CLEAR },
+        shading: { fill: 'F5F8FC', type: ShadingType.CLEAR },
         verticalAlign: VerticalAlign.CENTER,
-        margins: { top: 120, bottom: 120, left: 160, right: 160 },
+        margins: { top: 150, bottom: 130, left: 120, right: 120 },
         children: [
           new Paragraph({
-            alignment: AlignmentType.CENTER, spacing: { before: 0, after: 60 },
-            children: [new TextRun({ text: String(value), font: FONT_BODY, size: 48, bold: true, color: '1a3a6b' })]
+            alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 },
+            children: [new TextRun({ text: String(value), font: FONT_TITLE, size: 52, bold: true, color: NAVY })]
           }),
           new Paragraph({
             alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: label, font: FONT_BODY, size: 16, color: '6680aa' })]
+            children: [new TextRun({ text: label, font: FONT_BODY, size: 15, bold: true, color: GOLD_DK, characterSpacing: 30 })]
           }),
         ]
       });
     }
+    function mkSpacerCell(w) {
+      return new TableCell({ width: { size: w, type: DXA }, borders: bordNone,
+        children: [emptyPara()] });
+    }
 
-    // Estadísticas fijas: CREA, BARRIAL, MOTOS, DPEM
+    // Estadísticas fijas: CREA, BARRIAL, MOTOS, DPEM (con separadores)
     const statDefs = [
       { label: 'CREA',    value: cntCREA    },
       { label: 'BARRIAL', value: cntBARRIAL },
@@ -1359,108 +1404,118 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
     let statsTable = null;
     if (statDefs.length > 0) {
       const n = statDefs.length;
-      const baseW = Math.floor(CW / n);
-      const lastW = CW - baseW * (n - 1);
-      statsTable = new Table({
-        width: { size: CW, type: WidthType.DXA },
-        rows: [new TableRow({
-          children: statDefs.map((d, i) => mkStatCell(d.label, d.value, i === n - 1 ? lastW : baseW))
-        })]
+      const GAP = 160;
+      const totalGap = GAP * (n - 1);
+      const cardW = Math.floor((CW - totalGap) / n);
+      const cols = [];
+      const cells = [];
+      statDefs.forEach((d, i) => {
+        cols.push(cardW); cells.push(mkStatCell(d.label, d.value, cardW));
+        if (i < n - 1) { cols.push(GAP); cells.push(mkSpacerCell(GAP)); }
       });
-    }
-
-    function mkDivider(color) {
-      return new Paragraph({
-        spacing: { before: 0, after: 0 },
-        border: { bottom: { style: BorderStyle.SINGLE, size: 6, color } },
-        children: [new TextRun({ text: '' })]
+      statsTable = new Table({
+        width: { size: CW, type: DXA },
+        columnWidths: cols,
+        rows: [new TableRow({ children: cells })]
       });
     }
 
     return [
-      // Banda superior: Institución
+      // ══ Emblema institucional superior ══
       mkBandTable([
         {
-          bg: '0d1f3c', height: 620,
+          bg: NAVY_DEEP, height: 300,
           children: [new Paragraph({
             alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: 'POLICÍA DE LA CIUDAD DE BUENOS AIRES', font: FONT_BODY, size: 28, bold: true, color: 'FFFFFF' })]
+            children: [new TextRun({ text: '\u25C7    \u25C6    \u25C7', font: FONT_BODY, size: 18, color: GOLD_LT, characterSpacing: 40 })]
           })]
         },
         {
-          bg: '1a3a6b', height: 360,
+          bg: NAVY_DEEP, height: 480,
+          borderBottom: { color: GOLD, size: 4 },
           children: [new Paragraph({
             alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: 'Dirección Prevención en Eventos Masivos  ·  Depto. Seguridad en Eventos Deportivos', font: FONT_BODY, size: 18, italics: true, color: 'BDD0FF' })]
+            children: [new TextRun({ text: 'POLIC\u00CDA DE LA CIUDAD DE BUENOS AIRES', font: FONT_TITLE, size: 26, bold: true, color: 'FFFFFF', characterSpacing: 46 })]
+          })]
+        },
+        {
+          bg: NAVY, height: 400,
+          children: [new Paragraph({
+            alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
+            children: [new TextRun({ text: 'Direcci\u00F3n Prevenci\u00F3n en Eventos Masivos   \u00B7   Depto. Seguridad en Eventos Deportivos', font: FONT_BODY, size: 17, italics: true, color: GOLD_LT, characterSpacing: 14 })]
           })]
         },
       ]),
 
-      sp(560),
+      sp(680),
 
-      // Etiqueta DISTRIBUCIÓN
-      mkBandTable([{
-        bg: '2e5fad', height: 440,
-        children: [new Paragraph({
-          alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-          children: [new TextRun({ text: 'D  I  S  T  R  I  B  U  C  I  Ó  N', font: FONT_BODY, size: 28, bold: true, color: 'FFFFFF' })]
-        })]
-      }]),
-
-      sp(320),
-
-      // Nombre del estadio
+      // ══ Kicker: DISTRIBUCIÓN ══
+      mkOrnament(GOLD),
+      sp(140),
       new Paragraph({
         alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-        children: [new TextRun({ text: nombre.toUpperCase(), font: FONT_TITLE, characterSpacing: TITLE_SPC, size: 60, bold: true, color: '0d1f3c' })]
+        children: [new TextRun({ text: 'DISTRIBUCI\u00D3N', font: FONT_TITLE, size: 24, bold: true, color: GOLD_DK, characterSpacing: 140 })]
       }),
+      sp(300),
 
-      sp(240),
-      mkDivider('2e5fad'),
-      sp(200),
+      // ══ Nombre del estadio, enmarcado en filetes dorados ══
+      mkShortRule(GOLD, 8, 4200),
+      sp(220),
+      new Paragraph({
+        alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
+        children: [new TextRun({ text: nombre.toUpperCase(), font: FONT_TITLE, characterSpacing: 70, size: 56, bold: true, color: NAVY_DEEP })]
+      }),
+      sp(220),
+      mkShortRule(GOLD, 8, 4200),
 
-      // Partido (localidad)
+      sp(360),
+
+      // ══ Partido (localidad) ══
       ...(evento.localidad ? [
         new Paragraph({
           alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-          children: [new TextRun({ text: evento.localidad, font: FONT_BODY, size: 40, bold: true, color: '1a3a6b' })]
+          children: [new TextRun({ text: evento.localidad, font: FONT_TITLE, size: 38, bold: true, color: NAVY, characterSpacing: 30 })]
         }),
-        sp(160),
+        sp(180),
       ] : []),
 
-      // Fecha
+      // ══ Fecha ══
       ...(fechaFmt ? [
         new Paragraph({
           alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-          children: [new TextRun({ text: fechaFmt, font: FONT_BODY, size: 30, color: '555555' })]
+          children: [new TextRun({ text: fechaFmt, font: FONT_BODY, size: 27, italics: true, color: '55637A', characterSpacing: 20 })]
         }),
-        sp(440),
-      ] : [sp(440)]),
+        sp(500),
+      ] : [sp(500)]),
 
-      // Tabla de estadísticas
-      ...(statsTable ? [statsTable, sp(440)] : []),
+      // ══ Ornamento + estadísticas ══
+      mkOrnament(GOLD),
+      sp(280),
+      ...(statsTable ? [statsTable, sp(520)] : [sp(520)]),
 
-      // Banda inferior
+      // ══ Pie institucional con filete dorado ══
       mkBandTable([{
-        bg: 'EBF2FA', height: 400,
+        bg: 'EEF3FA', height: 440,
+        borderTop: { color: GOLD, size: 4 },
         children: [new Paragraph({
           alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
           children: [
-            new TextRun({ text: 'Mesa de Distribución  ·  ', font: FONT_BODY, size: 18, italics: true, color: '7a94bb' }),
-            new TextRun({ text: 'Dirección Prevención en Eventos Masivos', font: FONT_BODY, size: 18, color: '3a5a8a' }),
+            new TextRun({ text: 'Mesa de Distribuci\u00F3n', font: FONT_TITLE, size: 18, bold: true, color: NAVY, characterSpacing: 20 }),
+            new TextRun({ text: '   \u25C6   ', font: FONT_BODY, size: 16, color: GOLD }),
+            new TextRun({ text: 'Direcci\u00F3n Prevenci\u00F3n en Eventos Masivos', font: FONT_BODY, size: 17, italics: true, color: '3A5A8A' }),
           ]
         })]
       }]),
 
       new Paragraph({
-        alignment: AlignmentType.RIGHT, spacing: { before: 120, after: 0 },
+        alignment: AlignmentType.RIGHT, spacing: { before: 140, after: 0 },
         children: (() => {
           let exportText = `Emitido: ${fmtTs(new Date().toISOString())}`;
           try {
             const u = JSON.parse(sessionStorage.getItem('mesa-dist-usuario') || 'null');
-            if (u && u.nombre) exportText += `  ·  Exportado por ${u.jerarquia} ${u.nombre} (LP ${u.legajo})`;
+            if (u && u.nombre) exportText += `   \u00B7   Exportado por ${u.jerarquia} ${u.nombre} (LP ${u.legajo})`;
           } catch(e) {}
-          return [new TextRun({ text: exportText, font: FONT_BODY, size: 16, italics: true, color: 'aaaaaa' })];
+          return [new TextRun({ text: exportText, font: FONT_BODY, size: 16, italics: true, color: 'AAAAAA' })];
         })()
       }),
     ];
