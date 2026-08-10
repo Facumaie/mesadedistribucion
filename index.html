@@ -508,11 +508,11 @@ const JERARQUIA_ORDEN = ['Comisario','Subcomisario','Principal','Inspector','Ofi
 
 const TIPOS_DISPONIBLES = ['CREA','BARRIAL','COMUNAL','DPEM','DOU'];
 const TIPO_COLORES = { CREA:'#E65100', BARRIAL:'#2E7D32', COMUNAL:'#1565c0', DPEM:'#e65100', DOU:'#6a1b9a' };
-const TIPO_COLORES_HEX = { CREA:'E65100', BARRIAL:'2E7D32', COMUNAL:'1565C0', DPEM:'e65100', DOU:'6A1B9A' };
-const TIPO_BG_WORD = { CREA:'FFCC80', BARRIAL:'A5D6A7', COMUNAL:'90CAF9', DPEM:'FFF3E0' };
-const TIPO_BG_WORD_TITLE = { CREA:'FF9800', BARRIAL:'66BB6A', COMUNAL:'42A5F5', DPEM:'1a3a6b' };
-const TIPO_TEXT_WORD_TITLE = { CREA:'4E2700', BARRIAL:'1B5E20', COMUNAL:'0D47A1', DPEM:'FFFFFF' };
-const TIPO_TEXT_WORD_DESC = { CREA:'7A4400', BARRIAL:'2E7D32', COMUNAL:'1565C0', DPEM:'BDD0FF' };
+const TIPO_COLORES_HEX = { CREA:'6A1B9A', BARRIAL:'1B5E20', COMUNAL:'1565C0', DPEM:'e65100', DOU:'6A1B9A' };
+const TIPO_BG_WORD = { CREA:'E1BEE7', BARRIAL:'C8E6C9', COMUNAL:'90CAF9', DPEM:'FFF3E0' };
+const TIPO_BG_WORD_TITLE = { CREA:'6A1B9A', BARRIAL:'1B5E20', COMUNAL:'42A5F5', DPEM:'1a3a6b' };
+const TIPO_TEXT_WORD_TITLE = { CREA:'FFFFFF', BARRIAL:'FFFFFF', COMUNAL:'0D47A1', DPEM:'FFFFFF' };
+const TIPO_TEXT_WORD_DESC = { CREA:'E1BEE7', BARRIAL:'C8E6C9', COMUNAL:'1565C0', DPEM:'BDD0FF' };
 function tipoColor(t) { return TIPO_COLORES[t] || '#888'; }
 function tipoColorHex(t) { return TIPO_COLORES_HEX[t] || null; }
 function jerarquiaRank(j) {
@@ -1000,6 +1000,13 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
     Header, Footer, PageNumber
   } = window.docx;
 
+  // ── Tipografía institucional moderna ──────────────────────────
+  // Segoe UI: fuente de sistema en todo equipo Windows/Office, limpia y
+  // profesional. Semibold para títulos (más agradable que Arial Black).
+  const FONT_BODY  = 'Segoe UI';
+  const FONT_TITLE = 'Segoe UI Semibold';
+  const TITLE_SPC  = 24; // interletrado sutil en títulos (~1.2pt)
+
   const nombre = evento.estadio === '__otro__'
     ? (evento.otroEstadio || 'OTRO')
     : (evento.estadio || 'SIN ESTADIO');
@@ -1045,7 +1052,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
             margins: { top: 0, bottom: 0, left: 0, right: 80 },
             children: [new Paragraph({
               alignment: AlignmentType.RIGHT, spacing: { before: 0, after: 0 },
-              children: [new TextRun({ text: 'EFECTIVOS EN ESTA HOJA:', font: 'Arial', size: 14, bold: true, color: '1a3a6b' })]
+              children: [new TextRun({ text: 'EFECTIVOS EN ESTA HOJA:', font: FONT_BODY, size: 14, bold: true, color: '1a3a6b' })]
             })]
           }),
           // Número en recuadro
@@ -1057,7 +1064,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
             margins: { top: 0, bottom: 0, left: 80, right: 80 },
             children: [new Paragraph({
               alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-              children: [new TextRun({ text: String(total), font: 'Arial', size: 20, bold: true, color: '1a3a6b' })]
+              children: [new TextRun({ text: String(total), font: FONT_BODY, size: 20, bold: true, color: '1a3a6b' })]
             })]
           }),
         ]
@@ -1067,13 +1074,13 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
 
   function mkWordHeader() {
     const runs = [
-      new TextRun({ text: 'POLICÍA DE LA CIUDAD DE BUENOS AIRES  ', font: 'Arial', size: 16, bold: true }),
-      new TextRun({ text: '|  Dirección Prevención en Eventos Masivos  |  Depto. Seguridad en Eventos Deportivos', font: 'Arial', size: 14, color: '555555' }),
+      new TextRun({ text: 'POLICÍA DE LA CIUDAD DE BUENOS AIRES  ', font: FONT_BODY, size: 16, bold: true }),
+      new TextRun({ text: '|  Dirección Prevención en Eventos Masivos  |  Depto. Seguridad en Eventos Deportivos', font: FONT_BODY, size: 14, color: '555555' }),
       new TextRun({ break: 1 }),
-      new TextRun({ text: nombre, font: 'Arial', size: 20, bold: true }),
-      ...(evento.localidad ? [new TextRun({ text: `  •  ${evento.localidad}`, font:'Arial', size:18, bold:true, color:'1a3a6b' })] : []),
-      ...(evento.fecha     ? [new TextRun({ text: `  •  ${fmtFecha(evento.fecha)}`, font:'Arial', size:16, color:'333333' })] : []),
-      ...(guardadoEn       ? [new TextRun({ text: `  •  Guardado: ${fmtTs(guardadoEn)}`, font:'Arial', size:13, color:'999999' })] : []),
+      new TextRun({ text: nombre, font: FONT_BODY, size: 20, bold: true }),
+      ...(evento.localidad ? [new TextRun({ text: `  •  ${evento.localidad}`, font:FONT_BODY, size:18, bold:true, color:'1a3a6b' })] : []),
+      ...(evento.fecha     ? [new TextRun({ text: `  •  ${fmtFecha(evento.fecha)}`, font:FONT_BODY, size:16, color:'333333' })] : []),
+      ...(guardadoEn       ? [new TextRun({ text: `  •  Guardado: ${fmtTs(guardadoEn)}`, font:FONT_BODY, size:13, color:'999999' })] : []),
     ];
     return new Header({
       children: [
@@ -1094,12 +1101,12 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
           spacing: { before: 100, after: 0 },
           border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'cccccc' } },
           children: [
-            new TextRun({ text: 'Mesa de Distribución  –  ', font: 'Arial', size: 14, color: '999999', italics: true }),
-            new TextRun({ text: nombre, font: 'Arial', size: 14, color: '666666', bold: true }),
-            new TextRun({ text: '  –  Pág. ', font: 'Arial', size: 14, color: '999999' }),
-            new TextRun({ children: [PageNumber.CURRENT], font: 'Arial', size: 14, bold: true, color: '1a3a6b' }),
-            new TextRun({ text: ' de ', font: 'Arial', size: 14, color: '999999' }),
-            new TextRun({ children: [PageNumber.TOTAL_PAGES], font: 'Arial', size: 14, bold: true, color: '1a3a6b' }),
+            new TextRun({ text: 'Mesa de Distribución  –  ', font: FONT_BODY, size: 14, color: '999999', italics: true }),
+            new TextRun({ text: nombre, font: FONT_BODY, size: 14, color: '666666', bold: true }),
+            new TextRun({ text: '  –  Pág. ', font: FONT_BODY, size: 14, color: '999999' }),
+            new TextRun({ children: [PageNumber.CURRENT], font: FONT_BODY, size: 14, bold: true, color: '1a3a6b' }),
+            new TextRun({ text: ' de ', font: FONT_BODY, size: 14, color: '999999' }),
+            new TextRun({ children: [PageNumber.TOTAL_PAGES], font: FONT_BODY, size: 14, bold: true, color: '1a3a6b' }),
           ]
         })
       ]
@@ -1129,7 +1136,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
         spacing:   { before: 0, after: 0 },
         children:  [new TextRun({
           text:  String(txt ?? ''),
-          font:  o.font  || 'Arial',
+          font: o.font || FONT_BODY,
           size:  o.size  || 18,
           bold:  o.bold  || false,
           color: o.color || '000000',
@@ -1156,9 +1163,9 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
           alignment: AlignmentType.CENTER,
           spacing:   { before: 0, after: 0 },
           children:  [
-            new TextRun({ text: q.nombre || '', font: 'Arial Black', size: 24, bold: true, color: qTitleText }),
-            ...(q.descripcion ? [new TextRun({ text: `   (${q.descripcion})`, font: 'Arial', size: 20, bold: false, color: qTitleDesc })] : []),
-            ...(q.tipo ? [new TextRun({ text: `   [${q.tipo}]`, font: 'Arial', size: 20, bold: false, color: qTitleDesc })] : []),
+            new TextRun({ text: q.nombre || '', font: FONT_TITLE, characterSpacing: TITLE_SPC, size: 24, bold: true, color: qTitleText }),
+            ...(q.descripcion ? [new TextRun({ text: `   (${q.descripcion})`, font: FONT_BODY, size: 20, bold: false, color: qTitleDesc })] : []),
+            ...(q.tipo ? [new TextRun({ text: `   [${q.tipo}]`, font: FONT_BODY, size: 20, bold: false, color: qTitleDesc })] : []),
           ]
         })]
       })
@@ -1174,10 +1181,10 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
         children: [new Paragraph({
           spacing: { before: 0, after: 0 },
           children: [
-            new TextRun({ text: 'JEFE DE SECTOR:  ', font: 'Arial', size: 18, bold: true, color: '1a3a6b' }),
-            ...(q.jefeRango ? [new TextRun({ text: `${q.jefeRango}  `, font: 'Arial', size: 18, color: '444444' })] : []),
-            new TextRun({ text: q.jefeNombre || '—', font: 'Arial', size: 18, bold: true }),
-            ...(q.jefeTel ? [new TextRun({ text: `          Tel: ${q.jefeTel}`, font: 'Arial', size: 18, color: '2e7d32' })] : []),
+            new TextRun({ text: 'JEFE DE SECTOR:  ', font: FONT_BODY, size: 18, bold: true, color: '1a3a6b' }),
+            ...(q.jefeRango ? [new TextRun({ text: `${q.jefeRango}  `, font: FONT_BODY, size: 18, color: '444444' })] : []),
+            new TextRun({ text: q.jefeNombre || '—', font: FONT_BODY, size: 18, bold: true }),
+            ...(q.jefeTel ? [new TextRun({ text: `          Tel: ${q.jefeTel}`, font: FONT_BODY, size: 18, bold: true, color: '1B5E20' })] : []),
           ]
         })]
       })
@@ -1232,7 +1239,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
         children: [new Paragraph({
           alignment: o.align || AlignmentType.LEFT,
           spacing: { before: 0, after: 0 },
-          children: [new TextRun({ text: String(txt ?? ''), font: 'Arial', size: o.size || 18, bold: o.bold || false, color: o.color || '000000' })]
+          children: [new TextRun({ text: String(txt ?? ''), font: FONT_BODY, size: o.size || 18, bold: o.bold || false, color: o.color || '000000' })]
         })]
       });
     }
@@ -1246,7 +1253,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
         margins: { top: 120, bottom: 120, left: 200, right: 200 },
         children: [new Paragraph({
           alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-          children: [new TextRun({ text: 'MOTORIZADA', font: 'Arial Black', size: 24, bold: true, color: 'FFFFFF' })]
+          children: [new TextRun({ text: 'MOTORIZADA', font: FONT_TITLE, characterSpacing: TITLE_SPC, size: 24, bold: true, color: 'FFFFFF' })]
         })]
       })
     ]});
@@ -1331,11 +1338,11 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
         children: [
           new Paragraph({
             alignment: AlignmentType.CENTER, spacing: { before: 0, after: 60 },
-            children: [new TextRun({ text: String(value), font: 'Arial', size: 48, bold: true, color: '1a3a6b' })]
+            children: [new TextRun({ text: String(value), font: FONT_BODY, size: 48, bold: true, color: '1a3a6b' })]
           }),
           new Paragraph({
             alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: label, font: 'Arial', size: 16, color: '6680aa' })]
+            children: [new TextRun({ text: label, font: FONT_BODY, size: 16, color: '6680aa' })]
           }),
         ]
       });
@@ -1377,14 +1384,14 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
           bg: '0d1f3c', height: 620,
           children: [new Paragraph({
             alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: 'POLICÍA DE LA CIUDAD DE BUENOS AIRES', font: 'Arial', size: 28, bold: true, color: 'FFFFFF' })]
+            children: [new TextRun({ text: 'POLICÍA DE LA CIUDAD DE BUENOS AIRES', font: FONT_BODY, size: 28, bold: true, color: 'FFFFFF' })]
           })]
         },
         {
           bg: '1a3a6b', height: 360,
           children: [new Paragraph({
             alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: 'Dirección Prevención en Eventos Masivos  ·  Depto. Seguridad en Eventos Deportivos', font: 'Arial', size: 18, italics: true, color: 'BDD0FF' })]
+            children: [new TextRun({ text: 'Dirección Prevención en Eventos Masivos  ·  Depto. Seguridad en Eventos Deportivos', font: FONT_BODY, size: 18, italics: true, color: 'BDD0FF' })]
           })]
         },
       ]),
@@ -1396,7 +1403,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
         bg: '2e5fad', height: 440,
         children: [new Paragraph({
           alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-          children: [new TextRun({ text: 'D  I  S  T  R  I  B  U  C  I  Ó  N', font: 'Arial', size: 28, bold: true, color: 'FFFFFF' })]
+          children: [new TextRun({ text: 'D  I  S  T  R  I  B  U  C  I  Ó  N', font: FONT_BODY, size: 28, bold: true, color: 'FFFFFF' })]
         })]
       }]),
 
@@ -1405,7 +1412,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
       // Nombre del estadio
       new Paragraph({
         alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-        children: [new TextRun({ text: nombre.toUpperCase(), font: 'Arial Black', size: 60, bold: true, color: '0d1f3c' })]
+        children: [new TextRun({ text: nombre.toUpperCase(), font: FONT_TITLE, characterSpacing: TITLE_SPC, size: 60, bold: true, color: '0d1f3c' })]
       }),
 
       sp(240),
@@ -1416,7 +1423,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
       ...(evento.localidad ? [
         new Paragraph({
           alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-          children: [new TextRun({ text: evento.localidad, font: 'Arial', size: 40, bold: true, color: '1a3a6b' })]
+          children: [new TextRun({ text: evento.localidad, font: FONT_BODY, size: 40, bold: true, color: '1a3a6b' })]
         }),
         sp(160),
       ] : []),
@@ -1425,7 +1432,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
       ...(fechaFmt ? [
         new Paragraph({
           alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-          children: [new TextRun({ text: fechaFmt, font: 'Arial', size: 30, color: '555555' })]
+          children: [new TextRun({ text: fechaFmt, font: FONT_BODY, size: 30, color: '555555' })]
         }),
         sp(440),
       ] : [sp(440)]),
@@ -1439,8 +1446,8 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
         children: [new Paragraph({
           alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
           children: [
-            new TextRun({ text: 'Mesa de Distribución  ·  ', font: 'Arial', size: 18, italics: true, color: '7a94bb' }),
-            new TextRun({ text: 'Dirección Prevención en Eventos Masivos', font: 'Arial', size: 18, color: '3a5a8a' }),
+            new TextRun({ text: 'Mesa de Distribución  ·  ', font: FONT_BODY, size: 18, italics: true, color: '7a94bb' }),
+            new TextRun({ text: 'Dirección Prevención en Eventos Masivos', font: FONT_BODY, size: 18, color: '3a5a8a' }),
           ]
         })]
       }]),
@@ -1453,7 +1460,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
             const u = JSON.parse(sessionStorage.getItem('mesa-dist-usuario') || 'null');
             if (u && u.nombre) exportText += `  ·  Exportado por ${u.jerarquia} ${u.nombre} (LP ${u.legajo})`;
           } catch(e) {}
-          return [new TextRun({ text: exportText, font: 'Arial', size: 16, italics: true, color: 'aaaaaa' })];
+          return [new TextRun({ text: exportText, font: FONT_BODY, size: 16, italics: true, color: 'aaaaaa' })];
         })()
       }),
     ];
@@ -1473,7 +1480,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
         children: [new Paragraph({
           alignment: o.align || AlignmentType.LEFT,
           spacing: { before: 0, after: 0 },
-          children: [new TextRun({ text: String(txt ?? ''), font: o.font || 'Arial', size: o.size || 18, bold: o.bold || false, color: o.color || '000000' })]
+          children: [new TextRun({ text: String(txt ?? ''), font: o.font || FONT_BODY, size: o.size || 18, bold: o.bold || false, color: o.color || '000000' })]
         })]
       });
     }
@@ -1481,7 +1488,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
     const secTitlePara = new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { before: 0, after: 200 },
-      children: [new TextRun({ text: sectionTitle, font: 'Arial Black', size: 26, bold: true, color: opts.titleColor || '000000' })]
+      children: [new TextRun({ text: sectionTitle, font: FONT_TITLE, characterSpacing: TITLE_SPC, size: 26, bold: true, color: opts.titleColor || '000000' })]
     });
 
     function buildItem(c) {
@@ -1499,9 +1506,9 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
           children: [new Paragraph({
             spacing: { before: 0, after: 0 },
             children: [
-              new TextRun({ text: c.nombre || '', font: 'Arial', size: 20, bold: true, color: itemTextColor }),
-              ...(c.descripcion ? [new TextRun({ text: `  (${c.descripcion})`, font: 'Arial', size: 16, bold: false, color: itemDescColor })] : []),
-              ...(c.tipo ? [new TextRun({ text: `   [${c.tipo}]`, font: 'Arial', size: 16, bold: false, color: itemDescColor })] : []),
+              new TextRun({ text: c.nombre || '', font: FONT_BODY, size: 20, bold: true, color: itemTextColor }),
+              ...(c.descripcion ? [new TextRun({ text: `  (${c.descripcion})`, font: FONT_BODY, size: 16, bold: false, color: itemDescColor })] : []),
+              ...(c.tipo ? [new TextRun({ text: `   [${c.tipo}]`, font: FONT_BODY, size: 16, bold: false, color: itemDescColor })] : []),
             ]
           })]
         })
@@ -1518,11 +1525,11 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
           children: [new Paragraph({
             spacing: { before: 0, after: 0 },
             children: [
-              new TextRun({ text: 'JEFE DE SECTOR:  ', font: 'Arial', size: 16, bold: true, color: '1a3a6b' }),
-              ...(c.jefeRango ? [new TextRun({ text: `${c.jefeRango}  `, font: 'Arial', size: 16, color: '444444' })] : []),
-              new TextRun({ text: c.jefeNombre || '', font: 'Arial', size: 16, bold: true }),
-              ...(c.jefeLegajo ? [new TextRun({ text: `     LP: ${c.jefeLegajo}`, font: 'Arial', size: 16, color: '555555' })] : []),
-              ...(c.jefeTel ? [new TextRun({ text: `     Tel: ${c.jefeTel}`, font: 'Arial', size: 16, color: '2e7d32' })] : []),
+              new TextRun({ text: 'JEFE DE SECTOR:  ', font: FONT_BODY, size: 16, bold: true, color: '1a3a6b' }),
+              ...(c.jefeRango ? [new TextRun({ text: `${c.jefeRango}  `, font: FONT_BODY, size: 16, color: '444444' })] : []),
+              new TextRun({ text: c.jefeNombre || '', font: FONT_BODY, size: 16, bold: true }),
+              ...(c.jefeLegajo ? [new TextRun({ text: `     LP: ${c.jefeLegajo}`, font: FONT_BODY, size: 16, color: '555555' })] : []),
+              ...(c.jefeTel ? [new TextRun({ text: `     Tel: ${c.jefeTel}`, font: FONT_BODY, size: 16, bold: true, color: '1B5E20' })] : []),
             ]
           })]
         })
@@ -1731,7 +1738,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
           spacing: { before: 0, after: 0 },
           children: [new TextRun({
             text: String(txt ?? ''),
-            font: o.font || 'Arial',
+            font: o.font || FONT_BODY,
             size: o.size || 18,
             bold: o.bold || false,
             color: o.color || '000000',
@@ -1750,7 +1757,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
         children: [new Paragraph({
           alignment: AlignmentType.CENTER,
           spacing: { before: 0, after: 0 },
-          children: [new TextRun({ text: 'RESUMEN DE DISTRIBUCIÓN', font: 'Arial Black', size: 24, bold: true, color: 'FFFFFF' })]
+          children: [new TextRun({ text: 'RESUMEN DE DISTRIBUCIÓN', font: FONT_TITLE, characterSpacing: TITLE_SPC, size: 24, bold: true, color: 'FFFFFF' })]
         })]
       })
     ]});
@@ -1791,7 +1798,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
           margins: { top: 80, bottom: 80, left: 200, right: 200 },
           children: [new Paragraph({
             alignment: AlignmentType.LEFT, spacing: { before:0, after:0 },
-            children: [new TextRun({ text: label, font:'Arial Black', size:18, bold:true, color:'FFFFFF' })]
+            children: [new TextRun({ text: label, font:FONT_TITLE, characterSpacing:TITLE_SPC, size:18, bold:true, color:'FFFFFF' })]
           })]
         })
       ]});
@@ -1900,7 +1907,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
             children: [new Paragraph({
               alignment: AlignmentType.RIGHT,
               spacing: { before:0, after:0 },
-              children: [new TextRun({ text: label, font:'Arial', size:16, bold:true, color: color })]
+              children: [new TextRun({ text: label, font:FONT_BODY, size:16, bold:true, color: color })]
             })]
           }),
           sCell(String(valor), SC[4], {
@@ -1928,7 +1935,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
           children: [new Paragraph({
             alignment: AlignmentType.RIGHT,
             spacing: { before:0, after:0 },
-            children: [new TextRun({ text: 'TOTAL DE EFECTIVOS:', font:'Arial', size:18, bold:true, color:'1a3a6b' })]
+            children: [new TextRun({ text: 'TOTAL DE EFECTIVOS:', font:FONT_BODY, size:18, bold:true, color:'1a3a6b' })]
           })]
         }),
         sCell(String(totalEfectivos), SC[4], {
@@ -1951,7 +1958,14 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
     });
   }
 
-  const doc  = new Document({ sections });
+  const doc  = new Document({
+    styles: {
+      default: {
+        document: { run: { font: FONT_BODY } }
+      }
+    },
+    sections,
+  });
   const blob = await Packer.toBlob(doc);
   return { blob, nombre };
 }
