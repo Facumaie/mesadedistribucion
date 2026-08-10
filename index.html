@@ -3834,7 +3834,7 @@ function AsignarModal({ puesto, slot, nomina, asignaciones, lpEnOtros = {}, onCo
   const [guardando, setGuardando] = useState(false);
   const [modoTexto, setModoTexto] = useState(false); // false = teclado numérico (LP), true = letras (apellido)
   const [telExtra, setTelExtra] = useState('');
-  useEffect(() => { setTelExtra(''); }, [match ? match.lp : null]);
+  useEffect(() => { setTelExtra(match ? (match.tel || '') : ''); }, [match ? match.lp : null]);
   const inpRef = useRef(null);
 
   const alternarTeclado = () => {
@@ -3946,15 +3946,18 @@ function AsignarModal({ puesto, slot, nomina, asignaciones, lpEnOtros = {}, onCo
             {match && (
               <div style={{marginTop:'10px',background:'#e8f5e9',border:'1px solid #a5d6a7',borderRadius:'10px',padding:'10px 12px'}}>
                 <div style={{fontWeight:'800',fontSize:'15px',color:'#1b5e20'}}>{match.apellido}, {match.nombre}</div>
-                <div style={{fontSize:'12px',color:'#2e7d32',marginTop:'2px'}}>{match.grado} · LP {match.lp}{match.tel ? ' · Tel ' + match.tel : ''}</div>
+                <div style={{fontSize:'12px',color:'#2e7d32',marginTop:'2px'}}>{match.grado} · LP {match.lp}</div>
+                <div style={{marginTop:'10px',display:'flex',alignItems:'center',gap:'8px'}}>
+                  <span style={{fontSize:'12px',fontWeight:'800',color:'#1b5e20',whiteSpace:'nowrap'}}>📞 Tel</span>
+                  <input type="text" inputMode="tel" placeholder={match.tel ? 'Ej: 1112345678' : 'Sin teléfono en nómina — cargalo acá'}
+                    value={telExtra} onChange={e => setTelExtra(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && confirmar()}
+                    style={{flex:1,minWidth:0,padding:'8px 10px',border:'1.5px solid #a5d6a7',borderRadius:'8px',fontSize:'15px',background:'#fff',color:'#1a3a6b',fontWeight:'700'}}/>
+                  {match.tel && telExtra.trim() !== (match.tel || '').trim() && (
+                    <span style={{fontSize:'10.5px',color:'#b26a00',fontWeight:'800',whiteSpace:'nowrap'}}>✎ mod.</span>
+                  )}
+                </div>
               </div>
-            )}
-            {match && !match.tel && (
-              <>
-                <label className="campo-label" style={{marginTop:'10px'}}>TELÉFONO — no figura en nómina (opcional)</label>
-                <input type="text" inputMode="tel" placeholder="Ej: 1112345678" value={telExtra}
-                  onChange={e => setTelExtra(e.target.value)} className="campo-input" style={{marginTop:0}}/>
-              </>
             )}
             {yaAsignado && (
               <div style={{marginTop:'8px',fontSize:'12px',color:'#c62828',background:'#ffebee',padding:'8px 10px',borderRadius:'8px'}}>
@@ -3993,8 +3996,8 @@ function AsignarModal({ puesto, slot, nomina, asignaciones, lpEnOtros = {}, onCo
 
 function DetalleAsigModal({ asig, puesto, operativoId, usuario, rol, onClose, onQuitarPendiente, toast }) {
   const esPendiente = !!asig._pendiente;
-  const [editTel, setEditTel] = useState(false);
   const [telNuevo, setTelNuevo] = useState(asig.tel || '');
+  const telDirty = (telNuevo || '').trim() !== (asig.tel || '').trim();
   const guardarTel = async () => {
     try {
       const { db, collections } = window.firebaseUtils;
@@ -4048,18 +4051,20 @@ function DetalleAsigModal({ asig, puesto, operativoId, usuario, rol, onClose, on
               {asig.cargadoEn && ' · ' + new Date(asig.cargadoEn).toLocaleString('es-AR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}
             </div>
           )}
-          {!esPendiente && (editTel ? (
-            <div style={{display:'flex',gap:'8px',marginTop:'10px'}}>
-              <input type="text" inputMode="tel" placeholder="Ej: 1112345678" value={telNuevo}
-                onChange={e => setTelNuevo(e.target.value)} className="campo-input" style={{marginTop:0,flex:1}}
-                onKeyDown={e => e.key === 'Enter' && guardarTel()} autoFocus/>
-              <button className="campo-btn-sm" style={{minHeight:'40px'}} onClick={guardarTel}>✓</button>
+          {!esPendiente && (
+            <div style={{marginTop:'12px',background:'#f4f6fa',border:'1px solid #d5deee',borderRadius:'10px',padding:'10px 12px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                <span style={{fontSize:'12px',fontWeight:'800',color:'#1a3a6b',whiteSpace:'nowrap'}}>📞 Tel</span>
+                <input type="text" inputMode="tel" placeholder="Ej: 1112345678" value={telNuevo}
+                  onChange={e => setTelNuevo(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && telDirty && guardarTel()}
+                  style={{flex:1,minWidth:0,padding:'8px 10px',border:'1.5px solid #b9c6dd',borderRadius:'8px',fontSize:'15px',background:'#fff',color:'#1a3a6b',fontWeight:'700'}}/>
+                {telDirty && (
+                  <button className="campo-btn-sm" style={{minHeight:'40px',padding:'0 14px'}} onClick={guardarTel} title="Guardar teléfono">✓</button>
+                )}
+              </div>
             </div>
-          ) : (
-            <button className="campo-btn-ghost" style={{marginTop:'10px'}} onClick={() => setEditTel(true)}>
-              📞 {asig.tel ? 'Editar teléfono' : 'Agregar teléfono'}
-            </button>
-          ))}
+          )}
           {asig.avisado && (
             <div style={{marginTop:'8px',fontSize:'11px',color:'#1b5e20',background:'#e8f5e9',padding:'8px 10px',borderRadius:'8px'}}>
               📢 QTH y función avisados por <b>{asig.avisado.nombre}</b>
