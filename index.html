@@ -1614,7 +1614,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
     estadio: nombre,
     evento: evento.localidad || '',
     fecha: _fechaCover,
-    stats: _statsCover,
+    stats: [], // el resumen de efectivos ahora va como última hoja
     bottomTitle: 'Mesa de Distribución',
     bottomSub: 'Dirección Prevención en Eventos Masivos',
     footerLeft: `Emitido: ${fmtTs(new Date().toISOString())}`,
@@ -2005,11 +2005,58 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
       rows: [resTitleRow, resHdrRow, ...allResRows, resTotalRow],
     });
 
-    sections.push({
-      properties: mkPageProps(sections.length === 0 ? SectionType.CONTINUOUS : SectionType.NEXT_PAGE),
+    // Va inmediatamente después de la carátula (índice 1), no al final.
+    sections.splice(1, 0, {
+      properties: mkPageProps(SectionType.NEXT_PAGE),
       headers: { default: wHdr }, footers: { default: wFtr },
       children: [resTable],
     });
+  }
+
+  // ── RESUMEN DE EFECTIVOS (última hoja) ───────────────────────
+  {
+    const _allEf = [...qths, ...(infanteria||[]), ...(refuerzo||[]), ...(tercerAnillo||[])];
+    if (_allEf.length > 0 || (motos||[]).length > 0) {
+      const EC = [Math.round(CW * 0.62), CW - Math.round(CW * 0.62)];
+      const efCell = (txt, w, o = {}) => new TableCell({
+        width: { size: w, type: WidthType.DXA },
+        borders: o.borders || bordThin,
+        shading: o.bg ? { fill: o.bg, type: ShadingType.CLEAR } : undefined,
+        verticalAlign: VerticalAlign.CENTER,
+        margins: { top: 100, bottom: 100, left: 200, right: 200 },
+        children: [new Paragraph({
+          alignment: o.align || AlignmentType.LEFT,
+          spacing: { before: 0, after: 0 },
+          children: [new TextRun({ text: String(txt ?? ''), font: o.font || FONT_BODY, size: o.size || 20, bold: o.bold || false, color: o.color || '000000' })]
+        })]
+      });
+      const efTitleRow = new TableRow({ children: [
+        new TableCell({
+          columnSpan: 2, width: { size: CW, type: WidthType.DXA }, borders: bordThick,
+          shading: { fill: '1a3a6b', type: ShadingType.CLEAR },
+          margins: { top: 130, bottom: 130, left: 200, right: 200 },
+          children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
+            children: [new TextRun({ text: 'RESUMEN DE EFECTIVOS', font: FONT_TITLE, characterSpacing: TITLE_SPC, size: 26, bold: true, color: 'FFFFFF' })] })]
+        })
+      ]});
+      const efHdrRow = new TableRow({ tableHeader: true, children: [
+        efCell('CATEGORÍA',  EC[0], { bold: true, bg: 'E8EDF5', size: 18 }),
+        efCell('EFECTIVOS',  EC[1], { bold: true, bg: 'E8EDF5', size: 18, align: AlignmentType.CENTER }),
+      ]});
+      const efRows = _statsCover.map((st, i) => new TableRow({
+        height: { value: 560, rule: 'atLeast' },
+        children: [
+          efCell(st.label,           EC[0], { bold: true, size: 22, bg: i % 2 ? 'F5F7FB' : undefined }),
+          efCell(String(st.value),   EC[1], { align: AlignmentType.CENTER, bold: true, size: 26, color: '1a3a6b', bg: i % 2 ? 'F5F7FB' : undefined }),
+        ]
+      }));
+      const efTable = new Table({ width: { size: CW, type: WidthType.DXA }, columnWidths: EC, rows: [efTitleRow, efHdrRow, ...efRows] });
+      sections.push({
+        properties: mkPageProps(SectionType.NEXT_PAGE),
+        headers: { default: wHdr }, footers: { default: wFtr },
+        children: [efTable],
+      });
+    }
   }
 
   const doc  = new Document({
@@ -2596,7 +2643,7 @@ function SearchableJefeSelect({ jefes, value, onChange }) {
 }
 
 // ── PANEL GENÉRICO TIPO SECCIÓN (usado para Refuerzo, Infantería, 3er Anillo) ──
-function PanelSeccion({ items, jefes, toast, collectionName, title, icon, accentColor, darkColor, lightBg, lightBorder, itemLabel, addLabel, isRiver }) {
+function PanelSeccion({ items, jefes, toast, collectionName, title, icon, accentColor, darkColor, lightBg, lightBorder, itemLabel, addLabel, isRiver, globalJefe }) {
   const emptyForm = { nombre:'', descripcion:'', celdas:'2', jefeId:'', tipo:'', sector:'' };
   const [form,   setForm]   = React.useState({...emptyForm});
   const [saving, setSaving] = React.useState(false);
@@ -2608,6 +2655,24 @@ function PanelSeccion({ items, jefes, toast, collectionName, title, icon, accent
   const [sectorJefeA, setSectorJefeA] = React.useState({ jefeId:'', nombre:'', rango:'', legajo:'', telefono:'' });
   const [sectorJefeB, setSectorJefeB] = React.useState({ jefeId:'', nombre:'', rango:'', legajo:'', telefono:'' });
   const [editingSectorJefe, setEditingSectorJefe] = React.useState(null); // 'A' or 'B' or null
+
+  // ── Jefe general (para secciones sin sectores A/B, ej. 3er Anillo) ──
+  const [jefeGlobal, setJefeGlobal] = React.useState({ jefeId:'', nombre:'', rango:'', legajo:'', telefono:'' });
+  const [editingJefeGlobal, setEditingJefeGlobal] = React.useState(false);
+
+  // Auto-detectar jefe general desde los items existentes
+  React.useEffect(() => {
+    if (!globalJefe || isRiver) return;
+    const withJefe = items.find(s => s.jefeNombre);
+    if (withJefe) {
+      setJefeGlobal(prev => ({
+        ...prev,
+        nombre: withJefe.jefeNombre || '', rango: withJefe.jefeRango || '',
+        legajo: withJefe.jefeLegajo || prev.legajo || '', telefono: withJefe.jefeTel || '',
+        jefeId: withJefe.jefeId || '',
+      }));
+    }
+  }, [globalJefe, isRiver, items.length]);
 
   // Auto-detect sector jefe from existing items
   React.useEffect(() => {
@@ -2724,6 +2789,93 @@ function PanelSeccion({ items, jefes, toast, collectionName, title, icon, accent
     } else {
       setter(prev => ({ ...prev, jefeId: '', nombre: '', rango: '', telefono: '', legajo: '' }));
     }
+  };
+
+  // ── Seleccionar jefe general del pool ──
+  const handleSelectJefeGlobal = (jefeId) => {
+    const j = (jefes||[]).find(x=>x.id===jefeId);
+    if (j) setJefeGlobal(prev => ({ ...prev, jefeId:j.id, nombre:j.efectivo, rango:j.jerarquia||'', telefono:j.telefono||'', legajo:j.legajo||'' }));
+    else   setJefeGlobal(prev => ({ ...prev, jefeId:'', nombre:'', rango:'', telefono:'', legajo:'' }));
+  };
+
+  // ── Aplicar jefe general a TODOS los items de la sección ──
+  const handleAplicarJefeGlobal = async () => {
+    if (!jefeGlobal.nombre && !jefeGlobal.jefeId) { toast('Completá los datos del jefe','error'); return; }
+    if (items.length === 0) { toast(`No hay ${itemLabel}s cargados`,'error'); return; }
+    const {db,collections} = window.firebaseUtils;
+    const col = collections[collectionName];
+    const batch = db.batch();
+    items.forEach(s => {
+      batch.update(db.collection(col).doc(s.id), {
+        jefeId: jefeGlobal.jefeId || null,
+        jefeNombre: jefeGlobal.nombre || null,
+        jefeRango: jefeGlobal.rango || null,
+        jefeTel: jefeGlobal.telefono || null,
+        jefeLegajo: jefeGlobal.legajo || null,
+      });
+    });
+    await batch.commit();
+    toast(`✓ Jefe aplicado a los ${items.length} ${itemLabel}s`,'success');
+    setEditingJefeGlobal(false);
+  };
+
+  // ── Render tarjeta de jefe general (una sola para toda la sección) ──
+  const renderGlobalJefeCard = () => {
+    const sj = jefeGlobal, setSj = setJefeGlobal;
+    const isEditing = editingJefeGlobal;
+    const color = darkColor;
+    return (
+      <div style={{background:isEditing?'#fff8e1':'#f5f8ff',border:`2px solid ${color}`,borderRadius:'8px',padding:'10px 12px',marginBottom:'12px'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'8px'}}>
+          <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+            <span style={{background:color,color:'#fff',borderRadius:'6px',padding:'3px 10px',fontSize:'12px',fontWeight:'700'}}>JEFE DE SECTOR</span>
+            <span style={{fontSize:'11px',color:'#666'}}>Aplica a los {items.length} {itemLabel}s</span>
+          </div>
+          <div style={{display:'flex',gap:'4px'}}>
+            <button className="btn btn-sm" style={{background:color,color:'#fff',border:'none',fontSize:'10px'}}
+              onClick={()=>setEditingJefeGlobal(v=>!v)}>{isEditing ? '✕ Cerrar' : '✏️ Editar Jefe'}</button>
+            {sj.nombre && <button className="btn btn-sm btn-success" style={{fontSize:'10px'}}
+              onClick={handleAplicarJefeGlobal}>📋 Aplicar a todos ({items.length})</button>}
+          </div>
+        </div>
+        {sj.nombre && !isEditing && (
+          <div className="jefe-info" style={{borderLeftColor:color,marginTop:'0'}}>
+            <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
+              <div className="jn">{sj.rango && `${sj.rango} `}{sj.nombre}</div>
+              {sj.legajo && <span style={{fontSize:'10px',color:'#667',fontFamily:'monospace'}}>LP {sj.legajo}</span>}
+              {sj.telefono && <span className="jt" style={{marginTop:0}}>📞 {sj.telefono}</span>}
+            </div>
+          </div>
+        )}
+        {!sj.nombre && !isEditing && (
+          <div style={{fontSize:'11px',color:'#999',fontStyle:'italic'}}>Sin jefe asignado. Presioná "Editar Jefe" para asignar uno solo a todos los puestos de una vez.</div>
+        )}
+        {isEditing && (
+          <div style={{marginTop:'6px'}}>
+            {jefes && jefes.length > 0 && (
+              <div style={{marginBottom:'6px'}}>
+                <label style={{fontSize:'10px'}}>SELECCIONAR DEL POOL</label>
+                <SearchableJefeSelect jefes={sortJefes(jefes)} value={sj.jefeId} onChange={handleSelectJefeGlobal}/>
+              </div>
+            )}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'6px',marginBottom:'6px'}}>
+              <div><label style={{fontSize:'10px'}}>JERARQUÍA</label>
+                <input value={sj.rango} onChange={e=>setSj({...sj,rango:e.target.value})} placeholder="Ej: Inspector" style={{fontSize:'12px'}}/></div>
+              <div><label style={{fontSize:'10px'}}>NOMBRE</label>
+                <input value={sj.nombre} onChange={e=>setSj({...sj,nombre:e.target.value.toUpperCase()})} placeholder="APELLIDO, Nombre" style={{fontSize:'12px',textTransform:'uppercase'}}/></div>
+              <div><label style={{fontSize:'10px'}}>LEGAJO</label>
+                <input value={sj.legajo} onChange={e=>setSj({...sj,legajo:e.target.value.replace(/\D/g,'')})} placeholder="Ej: 12345" style={{fontSize:'12px',fontFamily:'monospace'}} inputMode="numeric"/></div>
+              <div><label style={{fontSize:'10px'}}>TELÉFONO</label>
+                <input value={sj.telefono} onChange={e=>setSj({...sj,telefono:e.target.value})} placeholder="11-xxxx-xxxx" style={{fontSize:'12px',fontFamily:'monospace'}}/></div>
+            </div>
+            <div style={{display:'flex',gap:'6px'}}>
+              <button className="btn btn-sm btn-success btn-full" onClick={handleAplicarJefeGlobal}>📋 Aplicar a los {items.length} {itemLabel}s</button>
+              <button className="btn btn-sm btn-secondary" onClick={()=>setEditingJefeGlobal(false)} style={{flexShrink:0}}>Cancelar</button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   // ── Render sector jefe card ──
@@ -2962,6 +3114,9 @@ function PanelSeccion({ items, jefes, toast, collectionName, title, icon, accent
             )}
           </div>
         )}
+
+        {/* ── Jefe general (una sola asignación para toda la sección) ── */}
+        {!isRiver && globalJefe && items.length>0 && renderGlobalJefeCard()}
 
         {/* ── Normal (no River): lista flat ── */}
         {!isRiver && items.length>0&&(
@@ -6403,6 +6558,7 @@ function App() {
               lightBorder="#c5cae9"
               itemLabel="puesto"
               addLabel="Agregar puesto de 3er Anillo"
+              globalJefe
             />
           )}
         </div>
