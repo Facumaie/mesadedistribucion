@@ -1125,19 +1125,32 @@ function drawCaratula(ctx, W, H, shield, d) {
 
   // ── Footer: par centrado con divisor, auto-fit ──
   const fL=d.footerLeft||'', fR=d.footerRight||'';
-  let fs=25; const fyy=H-46;
-  const sep=54, iconGap=30;
-  const groupW=(s)=>{ctx.font=F('400',s);return 30+ctx.measureText(fL).width + sep + 30+ctx.measureText(fR).width;};
-  while(groupW(fs)>W-120 && fs>17) fs-=1;
-  ctx.font=F('400',fs);
-  const wL=30+ctx.measureText(fL).width, wR=30+ctx.measureText(fR).width;
-  const total=wL+sep+wR; let gx=cx-total/2;
+  const fyy=H-46;
+  const sep=54;
   ctx.fillStyle=rgba('#cfe0f5',1); ctx.textAlign='left';
-  drawMini(ctx,'cal',gx,fyy-8,BLUE_LT); ctx.fillText(fL,gx+30,fyy);
-  const divX=gx+wL+sep/2;
-  ctx.strokeStyle=rgba('#7fa8d8',0.6); ctx.lineWidth=2; ctx.beginPath();ctx.moveTo(divX,fyy-22);ctx.lineTo(divX,fyy+6);ctx.stroke();
-  const rx=gx+wL+sep;
-  drawMini(ctx,'person',rx,fyy-8,BLUE_LT); ctx.fillText(fR,rx+30,fyy);
+  if(fL && fR){
+    // Ambos: par centrado con divisor
+    let fs=25;
+    const groupW=(s)=>{ctx.font=F('400',s);return 30+ctx.measureText(fL).width + sep + 30+ctx.measureText(fR).width;};
+    while(groupW(fs)>W-120 && fs>17) fs-=1;
+    ctx.font=F('400',fs);
+    const wL=30+ctx.measureText(fL).width, wR=30+ctx.measureText(fR).width;
+    const total=wL+sep+wR; let gx=cx-total/2;
+    drawMini(ctx,'cal',gx,fyy-8,BLUE_LT); ctx.fillText(fL,gx+30,fyy);
+    const divX=gx+wL+sep/2;
+    ctx.strokeStyle=rgba('#7fa8d8',0.6); ctx.lineWidth=2; ctx.beginPath();ctx.moveTo(divX,fyy-22);ctx.lineTo(divX,fyy+6);ctx.stroke();
+    const rx=gx+wL+sep;
+    drawMini(ctx,'person',rx,fyy-8,BLUE_LT); ctx.fillText(fR,rx+30,fyy);
+  } else if(fL || fR){
+    // Uno solo: centrado, sin divisor
+    const txt=fL||fR, icon=fL?'cal':'person';
+    let fs=25;
+    while((30+(ctx.font=F('400',fs),ctx.measureText(txt).width))>W-120 && fs>17) fs-=1;
+    ctx.font=F('400',fs);
+    const w=30+ctx.measureText(txt).width, gx=cx-w/2;
+    drawMini(ctx,icon,gx,fyy-8,BLUE_LT); ctx.fillText(txt,gx+30,fyy);
+  }
+  // Si ambos están vacíos, no se dibuja nada.
 }
 
 function drawStatIcon(ctx, kind, cx, cy, color, scale){
@@ -1606,11 +1619,6 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
       { icon:'person', value:_c('DPEM'),    label:'DPEM' },
     ];
   })();
-  let _footerRight = '';
-  try {
-    const u = JSON.parse(sessionStorage.getItem('mesa-dist-usuario') || 'null');
-    if (u && u.nombre) _footerRight = `Exportado por ${u.jerarquia} ${u.nombre} (LP ${u.legajo})`;
-  } catch(e) {}
   const _fechaCover = evento.fecha
     ? evento.fecha.split('-').reverse().join('/')
     : '';
@@ -1622,8 +1630,8 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
     stats: [],
     bottomTitle: 'Mesa de Distribución',
     bottomSub: 'Dirección Prevención en Eventos Masivos',
-    footerLeft: `Emitido: ${fmtTs(new Date().toISOString())}`,
-    footerRight: _footerRight,
+    footerLeft: '',  // datos de emisión/exportador removidos de la carátula a pedido
+    footerRight: '',
   });
 
   const COVER_MARGIN = 240;
