@@ -1080,10 +1080,7 @@ function drawCaratula(ctx, W, H, shield, d) {
   y+=56; ctx.strokeStyle=rgba('#173a68',0.35); ctx.lineWidth=2;
   ctx.beginPath();ctx.moveTo(cx-300,y);ctx.lineTo(cx+300,y);ctx.stroke();
 
-  // ── Evento + fecha ──
-  y+=60;
-  if(d.evento){ ctx.fillStyle=GRAY_D; let se=fit(d.evento.toUpperCase(),40,W-220,'600'); ctx.font=F('600',se); ctx.textAlign='center'; ctx.fillText(d.evento.toUpperCase(),cx,y); y+=66; }
-  if(d.fecha){ ctx.fillStyle=BLUE; ctx.font=F('700',52); ctx.textAlign='center'; ctx.fillText(d.fecha,cx,y); }
+  // ── Datos del partido (evento + fecha) removidos a pedido ──
 
   // ── Estadísticas ──
   const stats=d.stats||[]; const n=stats.length;
@@ -1281,9 +1278,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
       new TextRun({ text: '|  Dirección Prevención en Eventos Masivos  |  Depto. Seguridad en Eventos Deportivos', font: FONT_BODY, size: 14, color: '555555' }),
       new TextRun({ break: 1 }),
       new TextRun({ text: nombre, font: FONT_BODY, size: 20, bold: true }),
-      ...(evento.localidad ? [new TextRun({ text: `  •  ${evento.localidad}`, font:FONT_BODY, size:18, bold:true, color:'1a3a6b' })] : []),
-      ...(evento.fecha     ? [new TextRun({ text: `  •  ${fmtFecha(evento.fecha)}`, font:FONT_BODY, size:16, color:'333333' })] : []),
-      ...(guardadoEn       ? [new TextRun({ text: `  •  Guardado: ${fmtTs(guardadoEn)}`, font:FONT_BODY, size:13, color:'999999' })] : []),
+      // datos del partido (localidad / fecha / guardado) removidos del encabezado a pedido
     ];
     return new Header({
       children: [
@@ -1306,10 +1301,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
           children: [
             new TextRun({ text: 'Mesa de Distribución  –  ', font: FONT_BODY, size: 14, color: '999999', italics: true }),
             new TextRun({ text: nombre, font: FONT_BODY, size: 14, color: '666666', bold: true }),
-            new TextRun({ text: '  –  Pág. ', font: FONT_BODY, size: 14, color: '999999' }),
-            new TextRun({ children: [PageNumber.CURRENT], font: FONT_BODY, size: 14, bold: true, color: '1a3a6b' }),
-            new TextRun({ text: ' de ', font: FONT_BODY, size: 14, color: '999999' }),
-            new TextRun({ children: [PageNumber.TOTAL_PAGES], font: FONT_BODY, size: 14, bold: true, color: '1a3a6b' }),
+            // numeración de páginas removida del pie a pedido
           ]
         })
       ]
@@ -1625,9 +1617,9 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
   const coverPng = await renderCaratulaPNG({
     kicker: 'DISTRIBUCIÓN',
     estadio: nombre,
-    evento: evento.localidad || '',
-    fecha: _fechaCover,
-    stats: [], // el resumen de efectivos ahora va como última hoja
+    evento: '', // datos del partido removidos de la carátula a pedido
+    fecha: '',
+    stats: [],
     bottomTitle: 'Mesa de Distribución',
     bottomSub: 'Dirección Prevención en Eventos Masivos',
     footerLeft: `Emitido: ${fmtTs(new Date().toISOString())}`,
@@ -1687,7 +1679,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
       sections.push({
         properties: mkPageProps(SectionType.NEXT_PAGE),
         headers: { default: wHdr }, footers: { default: wFtr },
-        children: [mkEfectivosBox(pageEfectivos), new Paragraph({ spacing: { before: 0, after: 160 }, children: [] }), ...finalChildren],
+        children: [...finalChildren],
       });
     });
   }
@@ -1742,7 +1734,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
     sections.push({
       properties: mkPageProps(SectionType.NEXT_PAGE),
       headers: { default: wHdr }, footers: { default: wFtr },
-      children: [mkEfectivosBox(_qthPageEfectivos), new Paragraph({ spacing: { before: 0, after: 160 }, children: [] }), ..._qthPageChildren],
+      children: [..._qthPageChildren],
     });
     _qthPageChildren = [];
     _qthPageCost = 0;
@@ -1757,7 +1749,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
       sections.push({
         properties: mkPageProps(SectionType.NEXT_PAGE),
         headers: { default: wHdr }, footers: { default: wFtr },
-        children: [mkEfectivosBox(q.celdas), new Paragraph({ spacing: { before: 0, after: 160 }, children: [] }), buildQTH(q)],
+        children: [buildQTH(q)],
       });
     } else {
       const spacerCost = _qthPageChildren.length > 0 ? 1 : 0;
@@ -2026,51 +2018,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
     });
   }
 
-  // ── RESUMEN DE EFECTIVOS (última hoja) ───────────────────────
-  {
-    const _allEf = [...qths, ...(infanteria||[]), ...(refuerzo||[]), ...(tercerAnillo||[])];
-    if (_allEf.length > 0 || (motos||[]).length > 0) {
-      const EC = [Math.round(CW * 0.62), CW - Math.round(CW * 0.62)];
-      const efCell = (txt, w, o = {}) => new TableCell({
-        width: { size: w, type: WidthType.DXA },
-        borders: o.borders || bordThin,
-        shading: o.bg ? { fill: o.bg, type: ShadingType.CLEAR } : undefined,
-        verticalAlign: VerticalAlign.CENTER,
-        margins: { top: 100, bottom: 100, left: 200, right: 200 },
-        children: [new Paragraph({
-          alignment: o.align || AlignmentType.LEFT,
-          spacing: { before: 0, after: 0 },
-          children: [new TextRun({ text: String(txt ?? ''), font: o.font || FONT_BODY, size: o.size || 20, bold: o.bold || false, color: o.color || '000000' })]
-        })]
-      });
-      const efTitleRow = new TableRow({ children: [
-        new TableCell({
-          columnSpan: 2, width: { size: CW, type: WidthType.DXA }, borders: bordThick,
-          shading: { fill: '1a3a6b', type: ShadingType.CLEAR },
-          margins: { top: 130, bottom: 130, left: 200, right: 200 },
-          children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: 'RESUMEN DE EFECTIVOS', font: FONT_TITLE, characterSpacing: TITLE_SPC, size: 26, bold: true, color: 'FFFFFF' })] })]
-        })
-      ]});
-      const efHdrRow = new TableRow({ tableHeader: true, children: [
-        efCell('CATEGORÍA',  EC[0], { bold: true, bg: 'E8EDF5', size: 18 }),
-        efCell('EFECTIVOS',  EC[1], { bold: true, bg: 'E8EDF5', size: 18, align: AlignmentType.CENTER }),
-      ]});
-      const efRows = _statsCover.map((st, i) => new TableRow({
-        height: { value: 560, rule: 'atLeast' },
-        children: [
-          efCell(st.label,           EC[0], { bold: true, size: 22, bg: i % 2 ? 'F5F7FB' : undefined }),
-          efCell(String(st.value),   EC[1], { align: AlignmentType.CENTER, bold: true, size: 26, color: '1a3a6b', bg: i % 2 ? 'F5F7FB' : undefined }),
-        ]
-      }));
-      const efTable = new Table({ width: { size: CW, type: WidthType.DXA }, columnWidths: EC, rows: [efTitleRow, efHdrRow, ...efRows] });
-      sections.push({
-        properties: mkPageProps(SectionType.NEXT_PAGE),
-        headers: { default: wHdr }, footers: { default: wFtr },
-        children: [efTable],
-      });
-    }
-  }
+  // ── RESUMEN DE EFECTIVOS (última hoja) — removido a pedido ──
 
   const doc  = new Document({
     styles: {
@@ -6609,7 +6557,52 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+// ── Kill switch oculto ─────────────────────────────────────────
+// Combinación secreta: Ctrl + Alt + K → pide contraseña.
+// Con la contraseña correcta se da de baja (o se reactiva) la página.
+// El estado persiste entre recargas.
+(function(){
+  const BAJA_KEY  = 'mesa-dpem-baja';
+  const BAJA_PASS = 'killfac32096';
+
+  function estaDadaDeBaja(){
+    try { return localStorage.getItem(BAJA_KEY) === '1'; } catch(e){ return false; }
+  }
+
+  function mostrarPantallaBaja(){
+    if (document.getElementById('baja-overlay')) return;
+    const ov = document.createElement('div');
+    ov.id = 'baja-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:linear-gradient(135deg,#0c1f3f 0%,#173a68 100%);color:#eef1f6;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-family:Manrope,Segoe UI,Arial,sans-serif;padding:24px;';
+    ov.innerHTML =
+      '<div style="font-size:60px;line-height:1;margin-bottom:18px;">&#9940;</div>' +
+      '<div style="font-size:24px;font-weight:800;letter-spacing:2px;">SERVICIO NO DISPONIBLE</div>' +
+      '<div style="margin-top:12px;max-width:440px;font-size:14px;opacity:.72;line-height:1.6;">La aplicación se encuentra temporalmente fuera de servicio.</div>';
+    document.body.appendChild(ov);
+  }
+
+  // Listener secreto: siempre activo (permite reactivar aunque esté de baja).
+  document.addEventListener('keydown', function(e){
+    if (e.ctrlKey && e.altKey && (e.key === 'k' || e.key === 'K')){
+      e.preventDefault();
+      const p = prompt('');
+      if (p === null) return;
+      if (p !== BAJA_PASS) return; // contraseña incorrecta: no hace nada
+      try {
+        if (estaDadaDeBaja()){ localStorage.removeItem(BAJA_KEY); }
+        else { localStorage.setItem(BAJA_KEY, '1'); }
+      } catch(err){}
+      location.reload();
+    }
+  });
+
+  if (estaDadaDeBaja()){
+    // Página dada de baja: no se monta la app, sólo la pantalla de baja.
+    mostrarPantallaBaja();
+  } else {
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  }
+})();
 </script>
 </body>
 </html>
