@@ -1210,7 +1210,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
   const {
     Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
     BorderStyle, WidthType, ShadingType, VerticalAlign, AlignmentType, SectionType,
-    Header, Footer, PageNumber, ImageRun
+    PageNumber, ImageRun
   } = window.docx;
 
   // ── Tipografía institucional moderna ──────────────────────────
@@ -1285,41 +1285,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
     });
   }
 
-  function mkWordHeader() {
-    const runs = [
-      new TextRun({ text: 'POLICÍA DE LA CIUDAD DE BUENOS AIRES  ', font: FONT_BODY, size: 16, bold: true }),
-      new TextRun({ text: '|  Dirección Prevención en Eventos Masivos  |  Depto. Seguridad en Eventos Deportivos', font: FONT_BODY, size: 14, color: '555555' }),
-      new TextRun({ break: 1 }),
-      new TextRun({ text: nombre, font: FONT_BODY, size: 20, bold: true }),
-      // datos del partido (localidad / fecha / guardado) removidos del encabezado a pedido
-    ];
-    return new Header({
-      children: [
-        new Paragraph({
-          spacing: { before: 0, after: 100 },
-          border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '1a3a6b' } },
-          children: runs,
-        })
-      ]
-    });
-  }
 
-  function mkWordFooter() {
-    return new Footer({
-      children: [
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          spacing: { before: 100, after: 0 },
-          border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'cccccc' } },
-          children: [
-            new TextRun({ text: 'Mesa de Distribución  –  ', font: FONT_BODY, size: 14, color: '999999', italics: true }),
-            new TextRun({ text: nombre, font: FONT_BODY, size: 14, color: '666666', bold: true }),
-            // numeración de páginas removida del pie a pedido
-          ]
-        })
-      ]
-    });
-  }
 
   function mkPageProps(type) {
     return {
@@ -1379,24 +1345,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
       })
     ]});
 
-    const jefeRow = new TableRow({ children: [
-      new TableCell({
-        columnSpan: 6,
-        width:   { size: CW, type: WidthType.DXA },
-        borders: bordThin,
-        shading: { fill: 'D6E4F7', type: ShadingType.CLEAR },
-        margins: { top: 80, bottom: 80, left: 200, right: 200 },
-        children: [new Paragraph({
-          spacing: { before: 0, after: 0 },
-          children: [
-            new TextRun({ text: 'JEFE DE SECTOR:  ', font: FONT_BODY, size: 18, bold: true, color: '1a3a6b' }),
-            ...(q.jefeRango ? [new TextRun({ text: `${q.jefeRango}  `, font: FONT_BODY, size: 18, color: '444444' })] : []),
-            new TextRun({ text: q.jefeNombre || '—', font: FONT_BODY, size: 18, bold: true }),
-            ...(q.jefeTel ? [new TextRun({ text: `          Tel: ${q.jefeTel}`, font: FONT_BODY, size: 18, bold: true, color: '1B5E20' })] : []),
-          ]
-        })]
-      })
-    ]});
+
 
     const hdrRow = new TableRow({ tableHeader: true, children: [
       mkCell('N°',       COLS[0], { bold: true, align: AlignmentType.CENTER, bg: 'E8EDF5', size: 18 }),
@@ -1429,7 +1378,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
     return new Table({
       width: { size: CW, type: WidthType.DXA },
       columnWidths: COLS,
-      rows: [titleRow, jefeRow, hdrRow, ...dataRows],
+      rows: [titleRow, hdrRow, ...dataRows],
     });
   }
 
@@ -1545,26 +1494,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
         })
       ]});
 
-      // Fila jefe (solo si hay jefe asignado)
-      const jefeRow = c.jefeNombre ? new TableRow({ children: [
-        new TableCell({
-          columnSpan: 6,
-          width: { size: CW, type: WidthType.DXA },
-          borders: bordThin,
-          shading: { fill: 'D6E4F7', type: ShadingType.CLEAR },
-          margins: { top: 60, bottom: 60, left: 160, right: 160 },
-          children: [new Paragraph({
-            spacing: { before: 0, after: 0 },
-            children: [
-              new TextRun({ text: 'JEFE DE SECTOR:  ', font: FONT_BODY, size: 16, bold: true, color: '1a3a6b' }),
-              ...(c.jefeRango ? [new TextRun({ text: `${c.jefeRango}  `, font: FONT_BODY, size: 16, color: '444444' })] : []),
-              new TextRun({ text: c.jefeNombre || '', font: FONT_BODY, size: 16, bold: true }),
-              ...(c.jefeLegajo ? [new TextRun({ text: `     LP: ${c.jefeLegajo}`, font: FONT_BODY, size: 16, color: '555555' })] : []),
-              ...(c.jefeTel ? [new TextRun({ text: `     Tel: ${c.jefeTel}`, font: FONT_BODY, size: 16, bold: true, color: '1B5E20' })] : []),
-            ]
-          })]
-        })
-      ]}) : null;
+
 
       const hdrRow = new TableRow({ tableHeader: true, children: [
         iCell('Nº',       IC[0], { bold:true, align:AlignmentType.CENTER, bg:hdrBg, size:18 }),
@@ -1591,7 +1521,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
         children: IC.map(w => iCell('', w))
       }));
 
-      return new Table({ width: { size: CW, type: WidthType.DXA }, columnWidths: IC, rows: [nombreRow, ...(jefeRow?[jefeRow]:[]), hdrRow, ...dataRows] });
+      return new Table({ width: { size: CW, type: WidthType.DXA }, columnWidths: IC, rows: [nombreRow, hdrRow, ...dataRows] });
     }
 
     const children = [secTitlePara];
@@ -1605,8 +1535,6 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
   }
 
   // ── ORDEN DE SECCIONES ─────────────────────────────────────────
-  const wHdr = mkWordHeader();
-  const wFtr = mkWordFooter();
 
   // ── Carátula: imagen renderizada a página completa ──
   const _statsCover = (() => {
@@ -1686,8 +1614,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
       const finalChildren = pi === 0 ? children : children.slice(1);
       sections.push({
         properties: mkPageProps(SectionType.NEXT_PAGE),
-        headers: { default: wHdr }, footers: { default: wFtr },
-        children: [...finalChildren],
+          children: [...finalChildren],
       });
     });
   }
@@ -1696,7 +1623,6 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
   if (motos && motos.length > 0) {
     sections.push({
       properties: mkPageProps(SectionType.NEXT_PAGE),
-      headers: { default: wHdr }, footers: { default: wFtr },
       children: [buildMotorizada(motos)],
     });
   }
@@ -1741,7 +1667,6 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
     if (_qthPageChildren.length === 0) return;
     sections.push({
       properties: mkPageProps(SectionType.NEXT_PAGE),
-      headers: { default: wHdr }, footers: { default: wFtr },
       children: [..._qthPageChildren],
     });
     _qthPageChildren = [];
@@ -1756,8 +1681,7 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
       _flushQthPage();
       sections.push({
         properties: mkPageProps(SectionType.NEXT_PAGE),
-        headers: { default: wHdr }, footers: { default: wFtr },
-        children: [buildQTH(q)],
+          children: [buildQTH(q)],
       });
     } else {
       const spacerCost = _qthPageChildren.length > 0 ? 1 : 0;
@@ -2021,7 +1945,6 @@ async function buildWord(qths, evento, guardadoEn, motos, infanteria, refuerzo, 
     // Va inmediatamente después de la carátula (índice 1), no al final.
     sections.splice(1, 0, {
       properties: mkPageProps(SectionType.NEXT_PAGE),
-      headers: { default: wHdr }, footers: { default: wFtr },
       children: [resTable],
     });
   }
