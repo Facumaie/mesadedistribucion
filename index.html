@@ -21,6 +21,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -959,6 +960,137 @@ async function compartirPDF(blob, nombre) {
   }
 }
 
+
+// ── Exporta SOLO el resumen de QTH/puestos con la cantidad de efectivos (Excel) ──
+// No requiere jefes, teléfonos ni datos completos del evento.
+async function exportarResumenQTH({ qths, motos, infanteria, refuerzo, tercerAnillo, evento }) {
+  if (typeof ExcelJS === 'undefined') throw new Error('No se cargó la librería de Excel. Revisá la conexión y recargá la página.');
+  const ev = evento || {};
+  const estadioNombre = ev.estadio === '__otro__' ? (ev.otroEstadio || 'OTRO') : (ev.estadio || 'SIN ESTADIO');
+  const puestos = buildPuestosCampo(qths||[], motos||[], infanteria||[], refuerzo||[], tercerAnillo||[], ESTADIOS_RIVER.has(ev.estadio));
+  if (puestos.length === 0) throw new Error('No hay QTHs para exportar');
+
+  const HEAD = {
+    'SECTORES PRINCIPALES': { titulo:'DISTRIBUCIÓN DE QTHs', color:'FF1A3A6B', orden:1 },
+    '3ER ANILLO':           { titulo:'3ER ANILLO',           color:'FF1A237E', orden:2 },
+    'REFUERZO DE SECTOR':   { titulo:'REFUERZO DE SECTOR',   color:'FF1B5E20', orden:3 },
+    'MOTORIZADA':           { titulo:'MOTORIZADA',           color:'FF37474F', orden:4 },
+  };
+  const infInfo = (sec) => ({ titulo: sec, orden: 0,
+    color: /SECTOR A$/.test(sec) ? 'FF1565C0' : /SECTOR B$/.test(sec) ? 'FFC62828' : 'FFB71C1C' });
+  const grupos = new Map();
+  puestos.forEach(p => { if (!grupos.has(p.seccion)) grupos.set(p.seccion, []); grupos.get(p.seccion).push(p); });
+  const secciones = [...grupos.entries()]
+    .map(([sec, items]) => ({ sec, items, info: HEAD[sec] || infInfo(sec) }))
+    .sort((a, b) => a.info.orden - b.info.orden || a.sec.localeCompare(b.sec, 'es'));
+
+  const wb = new ExcelJS.Workbook();
+  const sh = wb.addWorksheet('Resumen QTH');
+  const thin = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+  const fill = (argb) => ({ type:'pattern', pattern:'solid', fgColor:{ argb } });
+  const sumaEf = (arr) => arr.reduce((t, p) => t + (p.celdas || 0), 0);
+  const totalGeneral = sumaEf(puestos);
+  const fechaTxt = ev.fecha ? String(ev.fecha).split('-').reverse().join('/') : '';
+  const LAST = 'D';
+  let r = 1;
+
+  const banda = (texto, color, size, fontColor) => {
+    sh.mergeCells(`A${r}:${LAST}${r}`);
+    const c = sh.getCell(`A${r}`);
+    c.value = texto;
+    c.font = { name:'Arial', size, bold:true, color:{ argb: fontColor || 'FFFFFFFF' } };
+    if (color) c.fill = fill(color);
+    c.alignment = { vertical:'middle', horizontal:'center', wrapText:true };
+    sh.getRow(r).height = size >= 14 ? 28 : 22;
+    r++;
+  };
+  banda('RESUMEN DE DISTRIBUCIÓN', 'FF1A3A6B', 14);
+  if ((ev.localidad || '').trim()) banda(ev.localidad.trim().toUpperCase(), null, 12, 'FF000000');
+  banda(estadioNombre + (fechaTxt ? '  —  ' + fechaTxt : ''), null, 11, 'FF333333');
+  r++;
+
+  sh.getCell(`C${r}`).value = 'Total efectivos';
+  sh.getCell(`D${r}`).value = totalGeneral;
+  ['C', 'D'].forEach(col => {
+    const c = sh.getCell(`${col}${r}`);
+    c.font = { name:'Arial', size:11, bold:true };
+    c.alignment = { horizontal:'center', vertical:'middle' };
+    c.fill = fill('FFE8F5E9');
+    c.border = thin;
+  });
+  r += 2;
+
+  ['N°', 'QTH / PUESTO', 'TIPO', 'EFECTIVOS'].forEach((h, i) => {
+    const c = sh.getCell(r, i + 1);
+    c.value = h;
+    c.font = { name:'Arial', size:10, bold:true };
+    c.fill = fill('FFE8EDF5');
+    c.alignment = { horizontal: i === 1 ? 'left' : 'center', vertical:'middle' };
+    c.border = thin;
+  });
+  const headerRow = r;
+  r++;
+
+  let n = 0;
+  secciones.forEach(({ items, info }) => {
+    banda(`${info.titulo}   ·   ${items.length} ${items.length === 1 ? 'puesto' : 'puestos'}   ·   ${sumaEf(items)} efectivos`, info.color, 10);
+    sh.getCell(`A${r - 1}`).alignment = { vertical:'middle', horizontal:'left', indent:1 };
+    items.forEach(p => {
+      n++;
+      const bg = p.tipo && TIPO_BG_WORD[p.tipo] ? 'FF' + TIPO_BG_WORD[p.tipo] : (n % 2 === 0 ? 'FFF5F7FB' : null);
+      const colorTipo = p.tipo ? 'FF' + (TIPO_COLORES_HEX[p.tipo] || '888888').toUpperCase() : 'FF888888';
+      [n, p.nombre || '', p.tipo || '—', p.celdas || 0].forEach((val, i) => {
+        const c = sh.getCell(r, i + 1);
+        c.value = val;
+        c.font = { name:'Arial', size: i === 1 ? 10 : 9, bold: i !== 2, color:{ argb: i === 2 ? colorTipo : 'FF000000' } };
+        c.alignment = { horizontal: i === 1 ? 'left' : 'center', vertical:'middle', wrapText: i === 1 };
+        c.border = thin;
+        if (bg) c.fill = fill(bg);
+      });
+      r++;
+    });
+  });
+
+  // Totales por tipo
+  const porTipo = new Map();
+  puestos.forEach(p => { const t = p.tipo || 'SIN TIPO'; porTipo.set(t, (porTipo.get(t) || 0) + (p.celdas || 0)); });
+  r++;
+  if (porTipo.size > 1) {
+    banda('TOTAL POR TIPO', 'FF455A64', 10);
+    porTipo.forEach((tot, t) => {
+      sh.mergeCells(`A${r}:C${r}`);
+      const a = sh.getCell(`A${r}`);
+      a.value = t; a.font = { name:'Arial', size:10, bold:true }; a.alignment = { horizontal:'right', vertical:'middle', indent:1 };
+      const d = sh.getCell(`D${r}`);
+      d.value = tot; d.font = { name:'Arial', size:10, bold:true }; d.alignment = { horizontal:'center', vertical:'middle' };
+      [a, d].forEach(c => { c.border = thin; });
+      r++;
+    });
+  }
+  sh.mergeCells(`A${r}:C${r}`);
+  const tl = sh.getCell(`A${r}`);
+  tl.value = 'TOTAL GENERAL'; tl.font = { name:'Arial', size:11, bold:true, color:{ argb:'FFFFFFFF' } };
+  tl.fill = fill('FF1A3A6B'); tl.alignment = { horizontal:'right', vertical:'middle', indent:1 };
+  const tv = sh.getCell(`D${r}`);
+  tv.value = totalGeneral; tv.font = { name:'Arial', size:12, bold:true, color:{ argb:'FFFFFFFF' } };
+  tv.fill = fill('FF1A3A6B'); tv.alignment = { horizontal:'center', vertical:'middle' };
+  [tl, tv].forEach(c => { c.border = thin; });
+  sh.getRow(r).height = 24;
+
+  sh.views = [{ showGridLines:false, state:'frozen', ySplit: headerRow }];
+  sh.getColumn(1).width = 7;
+  sh.getColumn(2).width = 62;
+  sh.getColumn(3).width = 16;
+  sh.getColumn(4).width = 14;
+  sh.pageSetup = { paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0,
+    margins:{ left:0.5, right:0.5, top:0.6, bottom:0.6, header:0.3, footer:0.3 }, printTitlesRow:`${headerRow}:${headerRow}` };
+  sh.headerFooter = { oddFooter:'&CPágina &P de &N' };
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const limpio = (t) => String(t || '').trim().replace(/[^\wÁÉÍÓÚÜÑáéíóúüñ-]+/g, '_').replace(/^_+|_+$/g, '');
+  downloadBlob(blob, ['ResumenQTH', limpio(estadioNombre), limpio(ev.localidad), ev.fecha].filter(Boolean).join('_') + '.xlsx');
+}
 
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -2330,7 +2462,7 @@ function PanelJefes({ jefes, toast }) {
 }
 
 // ── PANEL HISTORIAL ───────────────────────────────────────────
-function PanelHistorial({ historial, estadioActual, onCargar, onVer, onEliminar, onDuplicar, onExportWord }) {
+function PanelHistorial({ historial, estadioActual, onCargar, onVer, onEliminar, onDuplicar, onExportWord, onExportResumen }) {
   const [search, setSearch]       = useState('');
   const [soloEstadio, setSoloEstadio] = useState(true);
 
@@ -2418,6 +2550,8 @@ function PanelHistorial({ historial, estadioActual, onCargar, onVer, onEliminar,
                     onClick={e=>{e.stopPropagation();onDuplicar(h);}} title="Duplicar como nueva">📋</button>
                   <button className="btn btn-sm" style={{background:'#e3f2fd',color:'#1565c0',border:'none',padding:'4px 7px',fontSize:'12px',lineHeight:1}}
                     onClick={e=>{e.stopPropagation();onExportWord(h);}} title="Exportar Word">⬇</button>
+                  <button className="btn btn-sm" style={{background:'#fff8e1',color:'#b26a00',border:'none',padding:'4px 7px',fontSize:'12px',lineHeight:1}}
+                    onClick={e=>{e.stopPropagation();onExportResumen&&onExportResumen(h);}} title="Resumen de QTH (Excel)">📊</button>
                   <button className="btn btn-sm" style={{background:'#ffebee',color:'#d32f2f',border:'none',padding:'4px 7px',fontSize:'12px',lineHeight:1}}
                     onClick={e=>{e.stopPropagation();onEliminar(h.id);}} title="Eliminar">✕</button>
                 </div>
@@ -3222,6 +3356,12 @@ function ListaQTHs({ qths, jefes, toast, onEdit, evento, motos, infanteria, refu
       toast('Word exportado ✓','success');
     } catch(err) { toast('Error al generar Word: '+err.message,'error'); console.error(err); }
   };
+  const handleExportResumen = async () => {
+    try {
+      await exportarResumenQTH({ qths, motos, infanteria, refuerzo, tercerAnillo, evento });
+      toast('Resumen de QTH exportado ✓','success');
+    } catch(err) { toast('Error al generar el resumen: '+err.message,'error'); console.error(err); }
+  };
   const handleMove = async (idx, dir) => {
     const newIdx = idx + dir;
     if (newIdx < 0 || newIdx >= qths.length) return;
@@ -3315,6 +3455,10 @@ function ListaQTHs({ qths, jefes, toast, onEdit, evento, motos, infanteria, refu
           {qths.length>0&&<button className="btn btn-success" onClick={handleExport}
             style={{padding:'7px 18px',fontSize:'13px',animation:'pulse 2s infinite',boxShadow:'0 2px 8px rgba(34,134,58,0.4)'}}>
             📄 Exportar Word
+          </button>}
+          {qths.length>0&&<button className="btn btn-secondary" onClick={handleExportResumen}
+            style={{padding:'7px 14px',fontSize:'13px'}} title="Excel solo con QTH y cantidad de efectivos">
+            📊 Resumen Excel
           </button>}
         </div>
       </div>
@@ -3452,6 +3596,12 @@ function VistaHistorial({ h, onVolver, toast }) {
   const qths = h.qths||[];
   const total = qths.reduce((s,q)=>s+(q.celdas||0),0);
   const evento = { estadio: h.estadio, otroEstadio:'', fecha: h.fechaEvento, localidad: h.localidad };
+  const handleExportResumen = async () => {
+    try {
+      await exportarResumenQTH({ qths, motos: h.motos||[], infanteria: h.infanteria||[], refuerzo: h.refuerzo||[], tercerAnillo: h.tercerAnillo||[], evento });
+      toast('Resumen de QTH exportado ✓','success');
+    } catch(err) { toast('Error: '+err.message,'error'); console.error(err); }
+  };
   const handleExport = async () => {
     const invalidos = qths.filter(q => !q.nombre?.trim() || !q.celdas || q.celdas < 1);
     if (invalidos.length) { toast(`${invalidos.length} QTH(s) sin nombre o celdas. Cargá para editar y corregí.`,'error'); return; }
@@ -3479,6 +3629,7 @@ function VistaHistorial({ h, onVolver, toast }) {
             </div>
           </div>
           <span className="counter-pill" style={{background:'#e8edf5',color:'#1a3a6b'}}>{qths.length} QTHs · {total} celdas{(h.motos||[]).length>0&&` · ${h.motos.length} motos`}{(h.tercerAnillo||[]).length>0&&` · ${h.tercerAnillo.length} 3er anillo`}</span>
+          <button className="btn btn-secondary" onClick={handleExportResumen} title="Excel solo con QTH y cantidad de efectivos">📊 Resumen Excel</button>
           <button className="btn btn-success" onClick={handleExport}>⬇ Exportar Word</button>
         </div>
       </div>
@@ -3737,7 +3888,7 @@ function QthInput({ moto, onSave }) {
 }
 
 // ── HISTORIAL TAB ─────────────────────────────────────────────
-function HistorialTab({ historial, estadioNombre, onCargar, onVer, onEliminar, onDuplicar, onExportWord }) {
+function HistorialTab({ historial, estadioNombre, onCargar, onVer, onEliminar, onDuplicar, onExportWord, onExportResumen }) {
   const [filtroEstadio, setFiltroEstadio] = React.useState(estadioNombre || '');
 
   const estadiosUnicos = [...new Set(historial.map(h => h.estadio).filter(Boolean))].sort();
@@ -3764,6 +3915,7 @@ function HistorialTab({ historial, estadioNombre, onCargar, onVer, onEliminar, o
           onEliminar={onEliminar}
           onDuplicar={onDuplicar}
           onExportWord={onExportWord}
+          onExportResumen={onExportResumen}
         />
         <div className="card">
           <div className="card-header ch-amber" style={{display:'flex',gap:'10px',alignItems:'center',flexWrap:'wrap'}}>
@@ -3846,6 +3998,8 @@ function HistorialTab({ historial, estadioNombre, onCargar, onVer, onEliminar, o
                               onClick={e => { e.stopPropagation(); onDuplicar(h); }} title="Duplicar como nueva">📋</button>
                             <button className="btn btn-sm" style={{background:'#e3f2fd',color:'#1565c0',border:'1px solid #bbdefb',marginRight:'3px'}}
                               onClick={e => { e.stopPropagation(); onExportWord(h); }} title="Exportar Word">⬇</button>
+                            <button className="btn btn-sm" style={{background:'#fff8e1',color:'#b26a00',border:'1px solid #ffe0a3',marginRight:'3px'}}
+                              onClick={e => { e.stopPropagation(); onExportResumen && onExportResumen(h); }} title="Resumen de QTH (Excel)">📊</button>
                             <button className="btn btn-danger btn-sm"
                               onClick={e => { e.stopPropagation(); onEliminar(h.id); }} title="Eliminar">✕</button>
                           </td>
@@ -6108,6 +6262,14 @@ function App() {
     toast('✓ Distribución duplicada. Completá el evento y la fecha.','success');
   };
 
+  const handleExportResumenFromHist = async (h) => {
+    try {
+      const ev = { estadio: h.estadio, otroEstadio:'', fecha: h.fechaEvento, localidad: h.localidad };
+      await exportarResumenQTH({ qths: h.qths||[], motos: h.motos||[], infanteria: h.infanteria||[], refuerzo: h.refuerzo||[], tercerAnillo: h.tercerAnillo||[], evento: ev });
+      toast('Resumen de QTH exportado ✓','success');
+    } catch(err) { toast('Error: '+err.message,'error'); console.error(err); }
+  };
+
   const handleExportFromHist = async (h) => {
     const hQths = h.qths||[];
     const invalidos = hQths.filter(q => !q.nombre?.trim() || !q.celdas || q.celdas < 1);
@@ -6479,6 +6641,7 @@ function App() {
           onEliminar={handleEliminarHistorial}
           onDuplicar={handleDuplicar}
           onExportWord={handleExportFromHist}
+          onExportResumen={handleExportResumenFromHist}
         />
       )}
       </div>
