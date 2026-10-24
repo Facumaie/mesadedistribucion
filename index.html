@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
   <title>Mesa de Distribución – DPEM</title>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -422,6 +422,153 @@
       .campo-modal-bg { align-items: center; }
       .campo-modal { border-radius: 16px; }
     }
+
+    /* ═══════════ RENOVACIÓN DE LA INTERFAZ DE CARGA ═══════════ */
+    :root {
+      --navy:#0f2a5c; --blue:#2a5fc4; --sky:#e9f0fd; --ink:#1b2a44; --muted:#586c91;
+      --line:#dfe6f2; --bg:#eef2f9; --gold:#f2b705;
+      --font-d:'Sora','Manrope','Segoe UI',sans-serif;
+      --font-m:'JetBrains Mono',ui-monospace,Consolas,monospace;
+    }
+    body { background: radial-gradient(900px 420px at 100% -8%, rgba(42,95,196,.12), transparent 60%), var(--bg); color: var(--ink); }
+    .tab-btn, .localidad-btn, .evento-bar input, .evento-bar select, .cell-editing input { font-family: inherit; }
+    .sb-title, .campo-titulo, .login-title, .header-title h1 { font-family: var(--font-d); }
+    .jt, .jr, .cell-editing input[type=number] { font-family: var(--font-m); }
+
+    /* Tarjetas */
+    .card { border-radius: 18px; border: 1px solid var(--line); margin-bottom: 16px;
+      box-shadow: 0 1px 2px rgba(15,35,70,.05), 0 10px 26px -14px rgba(15,35,70,.22); }
+    .card-header { background: linear-gradient(135deg, var(--navy) 0%, #1d4694 62%, var(--blue) 100%);
+      font-family: var(--font-d); font-size: 12px; font-weight: 700; letter-spacing: .9px;
+      padding: 13px 18px; border-radius: 0; gap: 10px; flex-wrap: wrap; }
+    .ch-blue  { background: linear-gradient(135deg, #1d4694, #4a86e8); }
+    .ch-green { background: linear-gradient(135deg, #1b5e20, #43a047); }
+    .ch-amber { background: linear-gradient(135deg, #bf360c, #f57c00); }
+    .card-header[style*="--ac"] { background: linear-gradient(135deg, var(--ac), color-mix(in srgb, var(--ac) 58%, #fff)); }
+    .card-header[style*="background"] { background-image: none; }
+    .card-body { padding: 18px; }
+    .card.edit-inline { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(242,183,5,.28), 0 10px 26px -14px rgba(15,35,70,.22); }
+    .counter-pill { background: rgba(255,255,255,.95); font-family: var(--font-m); font-size: 11px; font-weight: 700; padding: 3px 10px; }
+
+    /* Campos */
+    label { color: var(--muted); font-size: 10.5px; letter-spacing: .7px; }
+    input, select, textarea { border: 1.5px solid #d3dcec; border-radius: 11px; background: #fff;
+      padding: 10px 13px; color: var(--ink); }
+    textarea { width: 100%; font-family: inherit; font-size: 13px; font-weight: 500; resize: vertical; }
+    textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(42,95,196,.14); }
+    input:focus, select:focus { border-color: var(--blue); }
+    input::placeholder, textarea::placeholder { color: #8da0c0; }
+
+    /* Botones */
+    .btn { border-radius: 11px; padding: 9px 16px; box-shadow: 0 1px 2px rgba(15,35,70,.12); }
+    .btn-sm { padding: 5px 10px; }
+    .btn-primary { background: linear-gradient(135deg, #2a5fc4, #1d4694); }
+    .btn-primary:hover { background: linear-gradient(135deg, #3469d0, #234fa5); }
+    .btn-success { background: linear-gradient(135deg, #2e9a4b, #1f7a38); }
+    .btn-success:hover { background: linear-gradient(135deg, #34a954, #25883f); }
+    .btn-danger { background: linear-gradient(135deg, #e04848, #c62828); }
+    .btn-danger:hover { background: linear-gradient(135deg, #e85a5a, #d32f2f); }
+    .btn-secondary { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+    .btn-secondary:hover { background: #f1f5fc; border-color: #c6d3ea; }
+
+    /* Barra de evento */
+    .evento-bar { padding: 16px 22px; gap: 14px; border-bottom: 3px solid var(--gold);
+      background: radial-gradient(620px 220px at 92% 0%, rgba(242,183,5,.20), transparent 60%),
+                  linear-gradient(110deg, #081c42 0%, #0f2a5c 55%, #1a4290 100%); }
+    .evento-bar label { color: rgba(255,255,255,.75); font-size: 10px; letter-spacing: 1px; }
+    .evento-bar input, .evento-bar select { background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.24);
+      border-radius: 10px; padding: 9px 12px; font-size: 13px; font-weight: 600; color: #fff; }
+    .evento-bar input[type=date] { color-scheme: dark; }
+    .evento-status { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); border-radius: 12px; padding: 9px 14px; }
+    .evento-status > div:first-child { font-family: var(--font-d); }
+    .evento-checks { display: flex; gap: 10px; margin-top: 5px; justify-content: flex-end; font-size: 10.5px; font-weight: 700; color: rgba(255,255,255,.55); }
+    .evento-checks .ok { color: #8be29a; }
+    .evento-btn { border: none; border-radius: 11px; padding: 6px 12px; font-size: 11px; font-weight: 700; color: #fff; cursor: pointer; transition: filter .15s, transform .08s; }
+    .evento-btn:hover { filter: brightness(1.1); }
+    .evento-btn:active { transform: translateY(1px); }
+    .evento-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .evento-btn.plantilla { background: linear-gradient(135deg, #6a3fd0, #4a28a8); }
+    .evento-btn.nueva { background: linear-gradient(135deg, #ff8a1f, #e65100); }
+
+    /* Chips de tipo */
+    .tipo-chips { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+    .tchip { --tc: #888; padding: 6px 15px; border-radius: 999px; border: 1.5px solid var(--tc); background: #fff; color: var(--tc);
+      font-size: 11.5px; font-weight: 800; letter-spacing: .4px; cursor: pointer; transition: all .15s; }
+    .tchip:hover { background: color-mix(in srgb, var(--tc) 10%, #fff); }
+    .tchip.on { background: var(--tc); color: #fff; box-shadow: 0 3px 10px color-mix(in srgb, var(--tc) 45%, transparent); }
+    .tchip.clear { --tc: #94a3b8; font-weight: 600; font-size: 11px; padding: 5px 11px; }
+    .tipo-tag { --tc: #888; display: inline-block; margin-left: 6px; padding: 1px 9px; border-radius: 999px; font-size: 10px;
+      font-weight: 800; vertical-align: middle; background: var(--tc); color: #fff; cursor: pointer; }
+    .tipo-tag.empty { background: transparent; color: #7b8cab; border: 1px dashed #b4c1da; font-weight: 600; }
+    .tipo-tag:hover { filter: brightness(1.12); }
+    .tipo-sel { width: auto !important; padding: 2px 6px !important; font-size: 11px !important; border-radius: 8px !important; margin-left: 6px; }
+
+    /* Stepper de celdas */
+    .stepper-wrap { display: flex; flex-direction: column; gap: 6px; }
+    .stepper { display: inline-flex; align-items: stretch; border: 1.5px solid #d3dcec; border-radius: 11px; overflow: hidden; background: #fff; width: fit-content; }
+    .stepper button { width: 38px; border: none; background: #f1f5fc; color: var(--navy); font-size: 18px; font-weight: 800; cursor: pointer; transition: background .12s; }
+    .stepper button:hover:not(:disabled) { background: #dfe9fb; }
+    .stepper button:disabled { opacity: .35; cursor: default; }
+    .stepper input { width: 56px; border: none; border-radius: 0; text-align: center; font-family: var(--font-m); font-size: 16px; font-weight: 700;
+      padding: 8px 0; -moz-appearance: textfield; box-shadow: none !important; }
+    .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .quick-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+    .qchip { min-width: 26px; padding: 2px 7px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--muted);
+      font-family: var(--font-m); font-size: 11px; font-weight: 700; cursor: pointer; }
+    .qchip:hover { border-color: var(--blue); color: var(--blue); }
+    .qchip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+
+    /* Formularios de carga */
+    .entry-grid { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: start; }
+    .entry-grid3 { display: grid; grid-template-columns: 2fr 2fr auto; gap: 12px; align-items: start; margin-bottom: 8px; }
+    .entry-grid3.river { grid-template-columns: 2fr 2fr auto 120px; }
+    .entry-box { border: 1px solid; border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+    .entry-title { font-family: var(--font-d); font-size: 12px; font-weight: 700; letter-spacing: .5px; margin-bottom: 10px; }
+    .warn-line { margin-top: 5px; font-size: 11.5px; font-weight: 700; color: #b45309; background: #fff7e0; border: 1px solid #f3d27a; border-radius: 8px; padding: 5px 9px; }
+    .keep-row { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); font-weight: 600; margin-bottom: 10px; cursor: pointer; user-select: none; }
+    .keep-row input { width: 16px; height: 16px; padding: 0; accent-color: var(--blue); }
+    @media (max-width: 700px) { .entry-grid, .entry-grid3, .entry-grid3.river { grid-template-columns: 1fr; } .evento-bar { padding: 12px 14px; } }
+
+    /* Carga rápida */
+    .rapida { margin-top: 14px; border: 1.5px dashed #b8c8e6; border-radius: 14px; background: #f7faff; }
+    .rapida-toggle { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 11px 14px; background: none; border: none;
+      font-family: var(--font-d); font-size: 12px; font-weight: 700; color: var(--navy); cursor: pointer; letter-spacing: .3px; }
+    .rapida-body { padding: 0 14px 14px; }
+    .rapida-hint { font-size: 11.5px; color: var(--muted); margin-bottom: 8px; line-height: 1.5; }
+    .rapida-hint code { background: #e6eefb; color: var(--navy); border-radius: 5px; padding: 1px 6px; font-family: var(--font-m); font-size: 11px; }
+    .rapida-opts { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+    .rapida-prev { border: 1px solid var(--line); border-radius: 12px; background: #fff; max-height: 250px; overflow-y: auto; margin-bottom: 10px; }
+    .rapida-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px; align-items: center; padding: 7px 12px; border-bottom: 1px solid #eef2f9; font-size: 12px; }
+    .rapida-row:last-child { border-bottom: none; }
+    .rapida-row.dup { background: #fff9e6; }
+    .rapida-row.error { background: #fff1f1; }
+    .rapida-row .n { font-weight: 700; }
+    .rapida-row .c { font-family: var(--font-m); font-weight: 700; color: var(--navy); }
+    .rapida-row .st { font-size: 10.5px; font-weight: 800; }
+    .rapida-row .st.ok { color: #1f7a38; } .rapida-row .st.dup { color: #b45309; } .rapida-row .st.error { color: #c62828; }
+
+    /* Filtros y avance de la lista */
+    .fchips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .fchip { padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--muted);
+      font-size: 11px; font-weight: 700; cursor: pointer; transition: all .12s; }
+    .fchip:hover { border-color: var(--blue); color: var(--blue); }
+    .fchip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+    .fchip b { font-family: var(--font-m); margin-left: 4px; opacity: .8; }
+    .avance { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; font-size: 11px; color: var(--muted); font-weight: 700; }
+    .avance-bar { flex: 1; height: 7px; border-radius: 99px; background: #e4ebf7; overflow: hidden; }
+    .avance-bar > div { height: 100%; background: linear-gradient(90deg, #2e9a4b, #66bb6a); transition: width .3s; }
+
+    /* Tablas y filas */
+    .tbl th { background: #f3f6fc; color: var(--muted); font-size: 10.5px; letter-spacing: .8px; text-transform: uppercase;
+      border-bottom: 1px solid var(--line); padding: 10px 12px; }
+    .tbl td { padding: 10px 12px; border-bottom: 1px solid #edf1f8; }
+    .tbl tr:hover td { background: #f4f8ff; }
+    .badge-orange { background: var(--sky); color: var(--navy); font-family: var(--font-m); font-weight: 700; border-radius: 9px; }
+    .item-row { border: 1px solid var(--line); border-left: 4px solid var(--ac, var(--blue)); border-radius: 12px; padding: 9px 12px;
+      background: #fff; display: flex; align-items: center; gap: 10px; transition: box-shadow .15s, transform .15s; }
+    .item-row:hover { box-shadow: 0 6px 16px -10px rgba(15,35,70,.4); }
+    .jefe-info { background: var(--sky); border-left: 3px solid var(--blue); border-radius: 0 10px 10px 0; }
+    .empty-state { color: var(--muted); }
   </style>
 </head>
 <body>
@@ -508,7 +655,7 @@ const ESTADIOS_RIVER = new Set(['RIVER PLATE']);
 const JERARQUIA_ORDEN = ['Comisario','Subcomisario','Principal','Inspector','Oficial Mayor'];
 
 const TIPOS_DISPONIBLES = ['CREA','BARRIAL','COMUNAL','DPEM','DOU'];
-const TIPO_COLORES = { CREA:'#E65100', BARRIAL:'#2E7D32', COMUNAL:'#1565c0', DPEM:'#e65100', DOU:'#6a1b9a' };
+const TIPO_COLORES = { CREA:'#7b1fa2', BARRIAL:'#2e7d32', COMUNAL:'#1565c0', DPEM:'#e65100', DOU:'#00796b' };
 const TIPO_COLORES_HEX = { CREA:'6A1B9A', BARRIAL:'1B5E20', COMUNAL:'1565C0', DPEM:'e65100', DOU:'6A1B9A' };
 const TIPO_BG_WORD = { CREA:'E1BEE7', BARRIAL:'C8E6C9', COMUNAL:'90CAF9', DPEM:'FFF3E0' };
 const TIPO_BG_WORD_TITLE = { CREA:'6A1B9A', BARRIAL:'1B5E20', COMUNAL:'42A5F5', DPEM:'1a3a6b' };
@@ -2234,6 +2381,11 @@ function EventoBar({ evento, onChange, onGuardar, onNueva, onGuardarPlantilla, q
       <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:'10px'}}>
         <div className="evento-status">
           <div style={{fontWeight:'700',fontSize:'13px'}}>{qths.length} QTHs · {total} celdas</div>
+          <div className="evento-checks">
+            {[['Estadio',!!nombre],['Fecha',!!evento.fecha],['Evento',!!(evento.localidad||'').trim()]].map(([l,ok])=>(
+              <span key={l} className={ok?'ok':''}>{ok?'✓':'○'} {l}</span>
+            ))}
+          </div>
           {totalEfectivos > 0 && totalEfectivos !== total && (
             <div style={{fontWeight:'900',fontSize:'15px',color:'#ffd54f',marginTop:'2px'}}>
               TOTAL: {totalEfectivos} efectivos
@@ -2261,15 +2413,13 @@ function EventoBar({ evento, onChange, onGuardar, onNueva, onGuardarPlantilla, q
           disabled={saving||!evento.estadio||qths.length===0} title="Guardar en historial">
           {saving?'⏳':'💾'} Guardar
         </button>
-        <button className="btn btn-sm" onClick={onGuardarPlantilla}
+        <button className="evento-btn plantilla" onClick={onGuardarPlantilla}
           disabled={!evento.estadio||qths.length===0}
-          style={{background:'#5e35b1',color:'#fff',border:'none'}}
           title="Guardar como plantilla base para este estadio">
           📌 Plantilla
         </button>
-        <button className="btn btn-sm" onClick={onNueva}
+        <button className="evento-btn nueva" onClick={onNueva}
           disabled={totalItems===0}
-          style={{background:'#ff6f00',color:'#fff',border:'none'}}
           title="Limpiar distribución actual y empezar de cero">
           🔄 NUEVA DISTRIBUCIÓN
         </button>
@@ -2669,6 +2819,153 @@ function SearchableJefeSelect({ jefes, value, onChange }) {
 }
 
 // ── PANEL GENÉRICO TIPO SECCIÓN (usado para Refuerzo, Infantería, 3er Anillo) ──
+// ── HELPERS DE CARGA (tipo, celdas, lista pegada) ─────────────
+const normClave = (t) => (t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim().toUpperCase();
+
+// Interpreta líneas pegadas: "NOMBRE 4 CREA", "NOMBRE, 4, CREA", "4 x NOMBRE", "NOMBRE (desc) - 3", o columnas de Excel (tab).
+function parsearLineasQTH(text, celdasDef) {
+  const tiposRe = TIPOS_DISPONIBLES.join('|');
+  const SEP = '[\\s,;|\\-–—:]+';
+  return (text||'').split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(raw => {
+    let s = raw.replace(/^\d+[.)]\s+/, '');
+    let tipo = '', celdas = null, desc = '', nombre = '';
+    if (s.includes('\t')) {
+      const p = s.split('\t').map(x => x.trim()).filter(x => x !== '');
+      nombre = p[0] || '';
+      p.slice(1).forEach(x => {
+        const u = x.toUpperCase();
+        if (TIPOS_DISPONIBLES.includes(u)) tipo = u;
+        else if (/^\d{1,2}$/.test(x)) celdas = parseInt(x);
+        else desc = desc ? desc + ' ' + x : x;
+      });
+    } else {
+      const pm = s.match(/\(([^)]*)\)/);
+      if (pm) { desc = pm[1].trim(); s = (s.slice(0, pm.index) + ' ' + s.slice(pm.index + pm[0].length)).trim(); }
+      for (let pass = 0; pass < 2; pass++) {
+        if (!tipo) {
+          const m = s.match(new RegExp(SEP + '(' + tiposRe + ')\\s*$', 'i'));
+          if (m) { tipo = m[1].toUpperCase(); s = s.slice(0, m.index); }
+        }
+        if (celdas === null) {
+          const m = s.match(new RegExp(SEP + '[x×]?\\s*(\\d{1,2})\\s*(?:celdas?|filas?|efectivos?|pers\\.?)?\\s*$', 'i'));
+          if (m) { celdas = parseInt(m[1]); s = s.slice(0, m.index); }
+        }
+      }
+      if (celdas === null) {
+        const m2 = s.match(/^(\d{1,2})\s*[x×\-–—:]\s*(.+)$/i);
+        if (m2) { celdas = parseInt(m2[1]); s = m2[2]; }
+      }
+      nombre = s;
+    }
+    nombre = nombre.replace(/[\s,;|\-–—:]+$/, '').replace(/\s+/g, ' ').trim().toUpperCase();
+    return { raw, nombre, descripcion: desc, tipo, celdas: celdas === null ? celdasDef : celdas };
+  });
+}
+
+function TipoChips({ value, onChange }) {
+  return (
+    <div className="tipo-chips">
+      {TIPOS_DISPONIBLES.map(t => (
+        <button key={t} type="button" className={`tchip ${value===t?'on':''}`} style={{'--tc': tipoColor(t)}}
+          onClick={()=>onChange(value===t?'':t)}>{t}</button>
+      ))}
+      {value && <button type="button" className="tchip clear" onClick={()=>onChange('')}>✕ Sin tipo</button>}
+    </div>
+  );
+}
+
+function CeldasStepper({ value, onChange, min=1, max=99, quick=[1,2,3,4,6,8], onEnter }) {
+  const n = parseInt(value) || 0;
+  const set = v => onChange(String(Math.max(min, Math.min(max, v))));
+  return (
+    <div className="stepper-wrap">
+      <div className="stepper">
+        <button type="button" onClick={()=>set((n||min+1)-1)} disabled={n<=min} title="Menos">−</button>
+        <input type="number" min={min} max={max} value={value} onChange={e=>onChange(e.target.value)}
+          onKeyDown={e=>{ if (e.key==='Enter' && onEnter) { e.preventDefault(); onEnter(); } }} />
+        <button type="button" onClick={()=>set(n+1)} disabled={n>=max} title="Más">+</button>
+      </div>
+      <div className="quick-chips">
+        {quick.map(q => <button type="button" key={q} className={`qchip ${n===q?'on':''}`} onClick={()=>set(q)}>{q}</button>)}
+      </div>
+    </div>
+  );
+}
+
+// Carga masiva pegando una lista (WhatsApp, Excel, notas). onSubmit(rows) debe devolver true si se guardó.
+function CargaRapida({ existentes, onSubmit, itemLabel }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [tipoDef, setTipoDef] = useState('');
+  const [celdasDef, setCeldasDef] = useState('2');
+  const [busy, setBusy] = useState(false);
+  const exist = new Set((existentes||[]).map(normClave));
+  const seen = new Set();
+  const rows = parsearLineasQTH(text, parseInt(celdasDef) || 2).map(r => {
+    const k = normClave(r.nombre);
+    let estado = 'ok';
+    if (r.nombre.length < 2 || !(r.celdas >= 1 && r.celdas <= 99)) estado = 'error';
+    else if (exist.has(k) || seen.has(k)) estado = 'dup';
+    seen.add(k);
+    return { ...r, tipo: r.tipo || tipoDef, estado };
+  });
+  const validas = rows.filter(r => r.estado === 'ok');
+  const dups = rows.filter(r => r.estado === 'dup').length;
+  const errs = rows.filter(r => r.estado === 'error').length;
+  const go = async () => {
+    if (!validas.length || busy) return;
+    setBusy(true);
+    try { const ok = await onSubmit(validas); if (ok) setText(''); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="rapida">
+      <button type="button" className="rapida-toggle" onClick={()=>setOpen(o=>!o)}>
+        <span>⚡ CARGA RÁPIDA · pegá una lista de {itemLabel}s</span><span>{open?'▲':'▼'}</span>
+      </button>
+      {open && (
+        <div className="rapida-body">
+          <div className="rapida-hint">
+            Una línea por {itemLabel}: <code>NOMBRE 4 CREA</code> · <code>NOMBRE, 3</code> · <code>2 x NOMBRE (descripción)</code>.
+            También podés pegar columnas de Excel (nombre / celdas / tipo). Si falta el número se usan las celdas por defecto.
+          </div>
+          <textarea rows={6} value={text} onChange={e=>setText(e.target.value)}
+            placeholder={'PALOS Y ESPINOSA 4 CREA\nAV. SARMIENTO, 3, BARRIAL\n2 x INGRESO PLATEA NORTE (sector visitante)'} />
+          <div className="rapida-opts">
+            <div><label>CELDAS POR DEFECTO</label>
+              <div style={{width:'90px'}}><input type="number" min="1" max="99" value={celdasDef} onChange={e=>setCeldasDef(e.target.value)} style={{fontFamily:'var(--font-m)',fontWeight:700}}/></div>
+            </div>
+            <div><label>TIPO POR DEFECTO (si la línea no lo trae)</label>
+              <TipoChips value={tipoDef} onChange={setTipoDef} />
+            </div>
+          </div>
+          {rows.length > 0 && (
+            <div className="rapida-prev">
+              {rows.map((r, i) => (
+                <div key={i} className={`rapida-row ${r.estado}`}>
+                  <span className="n">{r.nombre || <i style={{color:'#c62828'}}>sin nombre</i>}{r.descripcion && <span style={{fontWeight:400,color:'#667',fontSize:'11px'}}> ({r.descripcion})</span>}</span>
+                  <span className="c">{r.celdas}</span>
+                  {r.tipo ? <span className="tipo-tag" style={{'--tc':tipoColor(r.tipo),margin:0,cursor:'default'}}>{r.tipo}</span> : <span style={{color:'#9aa9c4'}}>—</span>}
+                  <span className={`st ${r.estado}`}>{r.estado==='ok'?'✓ nuevo':r.estado==='dup'?'⚠ ya existe':'✕ revisar'}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{display:'flex',gap:'10px',alignItems:'center',flexWrap:'wrap'}}>
+            <button className="btn btn-primary" onClick={go} disabled={!validas.length||busy}>
+              {busy ? 'Guardando...' : `➕ Agregar ${validas.length||''} ${itemLabel}${validas.length===1?'':'s'}`}
+            </button>
+            {(dups>0||errs>0) && <span style={{fontSize:'11.5px',color:'#b45309',fontWeight:700}}>
+              {dups>0&&`${dups} repetido${dups>1?'s':''} (se omiten)`}{dups>0&&errs>0&&' · '}{errs>0&&`${errs} para revisar (se omiten)`}
+            </span>}
+            {text && <button className="btn btn-secondary btn-sm" onClick={()=>setText('')}>Limpiar</button>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PanelSeccion({ items, jefes, toast, collectionName, title, icon, accentColor, darkColor, lightBg, lightBorder, itemLabel, addLabel, isRiver, globalJefe }) {
   const emptyForm = { nombre:'', descripcion:'', celdas:'2', jefeId:'', tipo:'', sector:'' };
   const [form,   setForm]   = React.useState({...emptyForm});
@@ -2747,7 +3044,8 @@ function PanelSeccion({ items, jefes, toast, collectionName, title, icon, accent
         await db.collection(col).add({...data, creadoEn: new Date().toISOString()});
         toast(`${itemLabel} agregado ✓`,'success');
       }
-      setForm({...emptyForm, sector: isRiver ? form.sector : ''});
+      setForm(editId ? {...emptyForm, sector: isRiver ? form.sector : ''}
+                     : {...emptyForm, tipo: form.tipo, celdas: form.celdas, jefeId: form.jefeId, sector: isRiver ? form.sector : ''});
     } catch(err) { toast('Error: '+err.message,'error'); }
     finally { setSaving(false); }
   };
@@ -2770,6 +3068,23 @@ function PanelSeccion({ items, jefes, toast, collectionName, title, icon, accent
     await b.commit(); toast(`${itemLabel}s borrados`,'info');
   };
   const cancelEdit = () => { setEditId(null); setForm({...emptyForm}); };
+  const addLote = async (rows) => {
+    if (isRiver && !form.sector) { toast('Elegí el sector (A o B) en el formulario antes de usar la carga rápida','error'); return false; }
+    try {
+      const {db,collections} = window.firebaseUtils;
+      const col = collections[collectionName];
+      const b = db.batch(); const base = Date.now();
+      rows.forEach((r,i) => b.set(db.collection(col).doc(), {
+        nombre:r.nombre, descripcion:r.descripcion||'', celdas:r.celdas, tipo:r.tipo||null,
+        sector: isRiver ? form.sector : null,
+        jefeId:null, jefeNombre:null, jefeRango:null, jefeTel:null, jefeLegajo:null,
+        orden: items.length + i, creadoEn: new Date(base+i).toISOString(),
+      }));
+      await b.commit();
+      toast(`${rows.length} ${itemLabel}${rows.length===1?'':'s'} agregado${rows.length===1?'':'s'} ✓`,'success');
+      return true;
+    } catch(err) { toast('Error: '+err.message,'error'); return false; }
+  };
   const handleMove = async (idx, dir, list) => {
     const sortedList = list || items;
     const newIdx = idx + dir;
@@ -2989,8 +3304,7 @@ function PanelSeccion({ items, jefes, toast, collectionName, title, icon, accent
 
   // ── Render item row ──
   const renderItemRow = (s, i, list) => (
-    <div key={s.id} style={{border:`1px solid ${lightBorder}`,borderRadius:'5px',padding:'7px 10px',
-      background:'#fff',display:'flex',alignItems:'center',gap:'8px'}}>
+    <div key={s.id} className="item-row" style={{'--ac':darkColor}}>
       <div style={{display:'flex',flexDirection:'column',gap:'1px',flexShrink:0}}>
         <button className="btn btn-secondary btn-sm" disabled={i===0}
           onClick={()=>handleMove(i,-1,list)}
@@ -3027,8 +3341,8 @@ function PanelSeccion({ items, jefes, toast, collectionName, title, icon, accent
   const itemsSinSector = isRiver ? items.filter(s => !s.sector || (s.sector !== 'A' && s.sector !== 'B')) : [];
 
   return (
-    <div className="card" style={{borderTop:`3px solid ${darkColor}`}}>
-      <div className="card-header" style={{background:darkColor,cursor:'pointer'}} onClick={()=>setOpen(o=>!o)}>
+    <div className="card">
+      <div className="card-header" style={{'--ac':darkColor,cursor:'pointer'}} onClick={()=>setOpen(o=>!o)}>
         <span>{icon} {title} <span style={{opacity:.6,fontWeight:'400',fontSize:'10px',marginLeft:'4px'}}>{open?'▲':'▼'}</span></span>
         <div style={{display:'flex',gap:'7px',alignItems:'center'}}>
           {items.length>0&&<span className="counter-pill" style={{background:accentColor,color:'#fff'}}>{items.length} {itemLabel}s</span>}
@@ -3038,11 +3352,11 @@ function PanelSeccion({ items, jefes, toast, collectionName, title, icon, accent
         </div>
       </div>
       {open && <div className="card-body">
-        <div style={{background:editId?'#fff8e1':lightBg,border:`1px solid ${editId?'#f9a825':lightBorder}`,borderRadius:'6px',padding:'10px',marginBottom:'12px'}}>
-          <div style={{fontSize:'11px',fontWeight:'700',color:editId?'#f57c00':darkColor,marginBottom:'7px'}}>
+        <div className="entry-box" style={{background:editId?'#fff8e1':lightBg,borderColor:editId?'#f9a825':lightBorder}}>
+          <div className="entry-title" style={{color:editId?'#b45309':darkColor}}>
             {editId ? `✏️ Editar ${itemLabel}` : `➕ ${addLabel}`}
           </div>
-          <div style={{display:'grid',gridTemplateColumns: isRiver ? '2fr 2fr 80px 80px' : '2fr 2fr 80px',gap:'6px',marginBottom:'6px'}}>
+          <div className={`entry-grid3 ${isRiver?'river':''}`}>
             <div><label>NOMBRE *</label>
               <input placeholder="Ej: PALOS Y ESPINOSA" value={form.nombre}
                 onChange={e=>setForm({...form,nombre:e.target.value})} style={{textTransform:'uppercase'}}
@@ -3052,8 +3366,7 @@ function PanelSeccion({ items, jefes, toast, collectionName, title, icon, accent
                 onChange={e=>setForm({...form,descripcion:e.target.value})}
                 onKeyDown={e=>e.key==='Enter'&&handleSave()}/></div>
             <div><label>FILAS</label>
-              <input type="number" min="1" max="15" value={form.celdas}
-                onChange={e=>setForm({...form,celdas:e.target.value})}/></div>
+              <CeldasStepper value={form.celdas} onChange={v=>setForm({...form,celdas:v})} max={15} quick={[1,2,3,4,6]} onEnter={handleSave}/></div>
             {isRiver && (
               <div><label>SECTOR *</label>
                 <select value={form.sector} onChange={e=>setForm({...form,sector:e.target.value})}
@@ -3065,34 +3378,13 @@ function PanelSeccion({ items, jefes, toast, collectionName, title, icon, accent
               </div>
             )}
           </div>
-          {/* TIPO */}
-          <div style={{marginBottom:'6px'}}>
+          <div style={{marginBottom:'10px'}}>
             <label>TIPO</label>
-            <div style={{display:'flex',gap:'6px'}}>
-              {TIPOS_DISPONIBLES.map(t=>(
-                <button key={t} type="button"
-                  onClick={()=>setForm({...form,tipo:form.tipo===t?'':t})}
-                  style={{
-                    padding:'4px 14px', border:'2px solid', borderRadius:'5px',
-                    fontFamily:'Arial,sans-serif', fontSize:'11px', fontWeight:'700',
-                    cursor:'pointer', transition:'all .15s',
-                    background: form.tipo===t ? (tipoColor(t)) : '#fff',
-                    color:       form.tipo===t ? '#fff' : (tipoColor(t)),
-                    borderColor: tipoColor(t),
-                  }}
-                >{t}</button>
-              ))}
-              {form.tipo && (
-                <button type="button" onClick={()=>setForm({...form,tipo:''})}
-                  style={{padding:'4px 8px',border:'1px solid #ccc',borderRadius:'5px',background:'#f5f5f5',fontSize:'10px',cursor:'pointer',color:'#666'}}>
-                  ✕
-                </button>
-              )}
-            </div>
+            <TipoChips value={form.tipo} onChange={t=>setForm({...form,tipo:t})}/>
           </div>
           {/* JEFE — solo si NO es River (en River se asigna por sector) */}
           {!isRiver && jefes && jefes.length > 0 && (
-            <div style={{marginBottom:'6px'}}>
+            <div style={{marginBottom:'10px'}}>
               <label>JEFE DE QTH</label>
               <SearchableJefeSelect
                 jefes={sortJefes(jefes)}
@@ -3109,10 +3401,11 @@ function PanelSeccion({ items, jefes, toast, collectionName, title, icon, accent
             </div>
           )}
           <div style={{display:'flex',gap:'6px'}}>
-            <button className="btn btn-sm btn-full" style={{background:darkColor,color:'#fff'}}
+            <button className="btn btn-full" style={{background:darkColor,color:'#fff'}}
               onClick={handleSave} disabled={saving}>{saving?'Guardando...':editId?'💾 Actualizar':`➕ Agregar`}</button>
-            {editId&&<button className="btn btn-secondary btn-sm" onClick={cancelEdit} style={{flexShrink:0}}>Cancelar</button>}
+            {editId&&<button className="btn btn-secondary" onClick={cancelEdit} style={{flexShrink:0}}>Cancelar</button>}
           </div>
+          {!editId && <CargaRapida existentes={items.map(x=>x.nombre)} onSubmit={addLote} itemLabel={itemLabel}/>}
         </div>
 
         {/* ── RIVER: Sector Jefes + Items agrupados ── */}
@@ -3157,20 +3450,25 @@ function PanelSeccion({ items, jefes, toast, collectionName, title, icon, accent
 }
 
 // ── FORM QTH ──────────────────────────────────────────────────
-function FormQTH({ jefes, editData, onCancelEdit, toast }) {
-  const empty = {nombre:'',descripcion:'',celdas:'',jefeId:'',tipo:''};
+function FormQTH({ jefes, qths, editData, onCancelEdit, toast }) {
+  const empty = {nombre:'',descripcion:'',celdas:'2',jefeId:'',tipo:''};
   const [form,setForm] = useState(empty);
   const [saving,setSaving] = useState(false);
   const [collapsed,setCollapsed] = useState(false);
+  const [keep,setKeep] = useState(true);
+  const nombreRef = React.useRef(null);
   useEffect(()=>{
     setForm(editData ? {nombre:editData.nombre,descripcion:editData.descripcion||'',celdas:String(editData.celdas),jefeId:editData.jefeId||'',tipo:editData.tipo||''} : empty);
     if (editData) setCollapsed(false);
   },[editData]);
   const jefe = jefes.find(j=>j.id===form.jefeId)||null;
+  const dup = !editData && form.nombre.trim()
+    ? (qths||[]).find(q => normClave(q.nombre) === normClave(form.nombre)) : null;
   const handleSubmit = async () => {
-    if (!form.nombre.trim()) { toast('Ingresá el nombre del QTH','error'); return; }
+    if (!form.nombre.trim()) { toast('Ingresá el nombre del QTH','error'); nombreRef.current && nombreRef.current.focus(); return; }
     const celdas = parseInt(form.celdas);
     if (!celdas||celdas<1) { toast('Celdas inválidas','error'); return; }
+    if (dup && !confirm(`Ya existe "${dup.nombre}" (${dup.celdas} celdas). ¿Agregarlo igual?`)) return;
     setSaving(true);
     try {
       const {db,collections} = window.firebaseUtils;
@@ -3185,63 +3483,61 @@ function FormQTH({ jefes, editData, onCancelEdit, toast }) {
       if (editData) {
         await db.collection(collections.qths).doc(editData.id).update(data);
         toast('QTH actualizado ✓','success'); onCancelEdit();
+        setForm(empty);
       } else {
         await db.collection(collections.qths).add({...data,creadoEn:new Date().toISOString()});
         toast('QTH agregado ✓','success');
+        // modo serie: conserva tipo, celdas y jefe para el próximo QTH
+        setForm(keep ? {...empty, tipo:form.tipo, celdas:form.celdas, jefeId:form.jefeId} : empty);
+        setTimeout(()=>nombreRef.current && nombreRef.current.focus(), 30);
       }
-      setForm(empty);
     } catch(err) { toast('Error: '+err.message,'error'); }
     finally { setSaving(false); }
   };
+  const addLote = async (rows) => {
+    try {
+      const {db,collections} = window.firebaseUtils;
+      const b = db.batch(); const base = Date.now(); const ahora = new Date().toISOString();
+      rows.forEach((r,i) => b.set(db.collection(collections.qths).doc(), {
+        nombre:r.nombre, celdas:r.celdas, descripcion:r.descripcion||null, tipo:r.tipo||null,
+        jefeId:null, jefeNombre:null, jefeRango:null, jefeTel:null,
+        actualizadoEn:ahora, creadoEn:new Date(base+i).toISOString(),
+      }));
+      await b.commit();
+      toast(`${rows.length} QTH${rows.length===1?'':'s'} agregado${rows.length===1?'':'s'} ✓`,'success');
+      return true;
+    } catch(err) { toast('Error: '+err.message,'error'); return false; }
+  };
+  const onEnter = e => { if (e.key==='Enter') { e.preventDefault(); handleSubmit(); } };
   return (
     <div className={`card ${editData?'edit-inline':''}`}>
-      <div className={`card-header ${editData?'ch-blue':''}`} style={{cursor: editData ? 'default' : 'pointer'}}
+      <div className={`card-header ${editData?'ch-amber':''}`} style={{cursor: editData ? 'default' : 'pointer'}}
         onClick={()=>{ if (!editData) setCollapsed(c=>!c); }}>
         <span>{editData?'✏️ EDITAR SECTOR PRINCIPAL':'➕ AGREGAR SECTOR PRINCIPAL (QTH)'} {!editData && <span style={{opacity:.6,fontWeight:'400',fontSize:'10px',marginLeft:'4px'}}>{collapsed?'▼':'▲'}</span>}</span>
       </div>
       {!collapsed && <div className="card-body">
-        <div className="form-row">
+        <div className="entry-grid">
           <div className="form-group">
             <label>NOMBRE DEL QTH *</label>
-            <input placeholder="Ej: PALOS Y ESPINOSA" value={form.nombre}
-              onChange={e=>setForm({...form,nombre:e.target.value})} style={{textTransform:'uppercase'}}/>
+            <input ref={nombreRef} placeholder="Ej: PALOS Y ESPINOSA" value={form.nombre}
+              onChange={e=>setForm({...form,nombre:e.target.value})} onKeyDown={onEnter} style={{textTransform:'uppercase'}}/>
+            {dup && <div className="warn-line">⚠ Ya existe "{dup.nombre}" con {dup.celdas} celdas</div>}
           </div>
           <div className="form-group">
             <label>CELDAS *</label>
-            <input type="number" min="1" max="99" placeholder="Ej: 4"
-              value={form.celdas} onChange={e=>setForm({...form,celdas:e.target.value})}/>
+            <CeldasStepper value={form.celdas} onChange={v=>setForm({...form,celdas:v})} onEnter={handleSubmit}/>
           </div>
         </div>
 
         <div className="form-group">
           <label>DESCRIPCIÓN (entre paréntesis en el Word)</label>
           <input placeholder="Ej: Ingreso visitante sector norte" value={form.descripcion}
-            onChange={e=>setForm({...form,descripcion:e.target.value})}/>
+            onChange={e=>setForm({...form,descripcion:e.target.value})} onKeyDown={onEnter}/>
         </div>
 
         <div className="form-group">
           <label>TIPO DE PUESTO</label>
-          <div style={{display:'flex',gap:'6px'}}>
-            {TIPOS_DISPONIBLES.map(t=>(
-              <button key={t} type="button"
-                onClick={()=>setForm({...form,tipo:form.tipo===t?'':t})}
-                style={{
-                  padding:'5px 16px', border:'2px solid', borderRadius:'5px',
-                  fontFamily:'Arial,sans-serif', fontSize:'12px', fontWeight:'700',
-                  cursor:'pointer', transition:'all .15s',
-                  background: form.tipo===t ? (tipoColor(t)) : '#fff',
-                  color:       form.tipo===t ? '#fff' : (tipoColor(t)),
-                  borderColor: tipoColor(t),
-                }}
-              >{t}</button>
-            ))}
-            {form.tipo && (
-              <button type="button" onClick={()=>setForm({...form,tipo:''})}
-                style={{padding:'5px 10px',border:'1px solid #ccc',borderRadius:'5px',background:'#f5f5f5',fontSize:'11px',cursor:'pointer',color:'#666'}}>
-                ✕ Sin tipo
-              </button>
-            )}
-          </div>
+          <TipoChips value={form.tipo} onChange={t=>setForm({...form,tipo:t})}/>
         </div>
 
         <div className="form-group">
@@ -3257,14 +3553,21 @@ function FormQTH({ jefes, editData, onCancelEdit, toast }) {
               <div className="jr">{jefe.jerarquia}</div>
               <div className="jt">📞 {jefe.telefono||'Sin teléfono'}</div>
             </div>
-          ) : <div style={{marginTop:'4px',fontSize:'11px',color:'#999'}}>Importá jefes desde el panel izquierdo.</div>}
+          ) : <div style={{marginTop:'4px',fontSize:'11px',color:'var(--muted)'}}>Importá jefes desde el panel izquierdo.</div>}
         </div>
+        {!editData && (
+          <label className="keep-row">
+            <input type="checkbox" checked={keep} onChange={e=>setKeep(e.target.checked)}/>
+            Modo serie: después de agregar, conservar tipo, celdas y jefe
+          </label>
+        )}
         <div style={{display:'flex',gap:'8px'}}>
           <button className="btn btn-primary btn-full" onClick={handleSubmit} disabled={saving}>
             {saving?'Guardando...':editData?'💾 Actualizar QTH':'➕ Agregar QTH'}
           </button>
           {editData&&<button className="btn btn-secondary" onClick={onCancelEdit} style={{flexShrink:0}}>Cancelar</button>}
         </div>
+        {!editData && <CargaRapida existentes={(qths||[]).map(q=>q.nombre)} onSubmit={addLote} itemLabel="QTH"/>}
       </div>}
     </div>
   );
@@ -3277,6 +3580,7 @@ function ListaQTHs({ qths, jefes, toast, onEdit, evento, motos, infanteria, refu
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
   const [dragOverHalf, setDragOverHalf] = useState(null); // 'top' | 'bottom'
+  const [filtro, setFiltro] = useState('all');
 
   const handleInlineStart = (q, field) => {
     if (field === 'nombre') setInlineEdit({id:q.id, field, value: q.nombre||''});
@@ -3435,10 +3739,26 @@ function ListaQTHs({ qths, jefes, toast, onEdit, evento, motos, infanteria, refu
     handleDragMove(dragIdx, toIdx);
     onDragEnd();
   };
-  const filtered = qths.filter(q => !search ||
+  const pasaFiltro = q => filtro==='all' ? true
+    : filtro==='sinjefe' ? !(q.jefeId||q.jefeNombre)
+    : filtro==='sintipo' ? !q.tipo
+    : filtro==='noverif' ? !q.jefeChecked
+    : q.tipo === filtro;
+  const filtered = qths.filter(q => pasaFiltro(q) && (!search ||
     q.nombre.toLowerCase().includes(search.toLowerCase()) ||
-    (q.jefeNombre||'').toLowerCase().includes(search.toLowerCase()));
-  const canReorder = !search; // solo reordena sin filtro activo
+    (q.jefeNombre||'').toLowerCase().includes(search.toLowerCase())));
+  const canReorder = !search && filtro==='all'; // solo reordena sin filtro activo
+  const cntJefe = qths.filter(q => q.jefeId||q.jefeNombre).length;
+  const cntSinTipo = qths.filter(q => !q.tipo).length;
+  const cntNoVerif = qths.filter(q => !q.jefeChecked).length;
+  const avancePct = qths.length ? Math.round(cntJefe*100/qths.length) : 0;
+  const handleInlineTipo = async (id, tipo) => {
+    try {
+      await window.firebaseUtils.db.collection(window.firebaseUtils.collections.qths).doc(id)
+        .update({ tipo: tipo||null, actualizadoEn: new Date().toISOString() });
+    } catch(err) { toast('Error: '+err.message,'error'); }
+    setInlineEdit(null);
+  };
   const total = qths.reduce((s,q)=>s+(q.celdas||0),0);
   const checkedCount = qths.filter(q=>q.jefeChecked).length;
   return (
@@ -3464,6 +3784,24 @@ function ListaQTHs({ qths, jefes, toast, onEdit, evento, motos, infanteria, refu
       </div>
       <div className="card-body">
         {qths.length>0&&(
+          <div className="avance">
+            <span>JEFES ASIGNADOS {cntJefe}/{qths.length}</span>
+            <div className="avance-bar"><div style={{width:avancePct+'%'}}/></div>
+            <span style={{fontFamily:'var(--font-m)'}}>{avancePct}%</span>
+          </div>
+        )}
+        {qths.length>0&&(
+          <div className="fchips">
+            <button className={`fchip ${filtro==='all'?'on':''}`} onClick={()=>setFiltro('all')}>Todos<b>{qths.length}</b></button>
+            {TIPOS_DISPONIBLES.filter(t=>qths.some(q=>q.tipo===t)).map(t=>(
+              <button key={t} className={`fchip ${filtro===t?'on':''}`} onClick={()=>setFiltro(filtro===t?'all':t)}>{t}<b>{qths.filter(q=>q.tipo===t).length}</b></button>
+            ))}
+            {qths.length-cntJefe>0 && <button className={`fchip ${filtro==='sinjefe'?'on':''}`} onClick={()=>setFiltro(filtro==='sinjefe'?'all':'sinjefe')}>Sin jefe<b>{qths.length-cntJefe}</b></button>}
+            {cntSinTipo>0 && <button className={`fchip ${filtro==='sintipo'?'on':''}`} onClick={()=>setFiltro(filtro==='sintipo'?'all':'sintipo')}>Sin tipo<b>{cntSinTipo}</b></button>}
+            {cntNoVerif>0 && cntNoVerif<qths.length && <button className={`fchip ${filtro==='noverif'?'on':''}`} onClick={()=>setFiltro(filtro==='noverif'?'all':'noverif')}>Sin verificar<b>{cntNoVerif}</b></button>}
+          </div>
+        )}
+        {qths.length>0&&(
           <div style={{display:'flex',gap:'8px',marginBottom:'10px',alignItems:'center'}}>
             <div className="search-wrapper" style={{flex:1}}>
               <input placeholder="Buscar QTH o jefe..." value={search} onChange={e=>setSearch(e.target.value)}/>
@@ -3476,7 +3814,7 @@ function ListaQTHs({ qths, jefes, toast, onEdit, evento, motos, infanteria, refu
           <div className="empty-state">
             {qths.length===0
               ?<><div style={{fontSize:'32px'}}>📍</div><div>No hay QTHs. Usá el formulario para agregar.</div></>
-              :<div>Sin resultados para "{search}"</div>}
+              :<div>Sin resultados{search?` para "${search}"`:''} {filtro!=='all' && <button className="btn btn-secondary btn-sm" onClick={()=>setFiltro('all')}>Quitar filtro</button>}</div>}
           </div>
         )}
         {filtered.length>0&&(
@@ -3531,13 +3869,19 @@ function ListaQTHs({ qths, jefes, toast, onEdit, evento, motos, infanteria, refu
                           {q.descripcion && (
                             <span style={{fontWeight:'400',color:'#667',fontSize:'11px',marginLeft:'5px'}}>({q.descripcion})</span>
                           )}
-                          {q.tipo && (
-                            <span style={{
-                              marginLeft:'6px', padding:'1px 7px', borderRadius:'8px',
-                              fontSize:'10px', fontWeight:'700', verticalAlign:'middle',
-                              background: tipoColor(q.tipo), color:'#fff'
-                            }}>{q.tipo}</span>
-                          )}
+                          {inlineEdit?.id===q.id && inlineEdit?.field==='tipo'
+                            ? <select autoFocus className="tipo-sel" value={q.tipo||''}
+                                onClick={e=>e.stopPropagation()}
+                                onChange={e=>handleInlineTipo(q.id, e.target.value)}
+                                onBlur={()=>setInlineEdit(null)}>
+                                <option value="">Sin tipo</option>
+                                {TIPOS_DISPONIBLES.map(t=><option key={t} value={t}>{t}</option>)}
+                              </select>
+                            : <span className={`tipo-tag ${q.tipo?'':'empty'}`} style={{'--tc': q.tipo?tipoColor(q.tipo):'#94a3b8'}}
+                                title="Click para cambiar el tipo"
+                                onClick={e=>{ e.stopPropagation(); setInlineEdit({id:q.id,field:'tipo',value:''}); }}>
+                                {q.tipo||'+ tipo'}
+                              </span>}
                         </>}
                     </td>
                     <td className={inlineEdit?.id===q.id&&inlineEdit?.field==='celdas'?'cell-editing':'cell-editable'}
@@ -6579,7 +6923,7 @@ function App() {
         )}
 
         <div style={{maxWidth:'1100px',margin:'0 auto',padding:'14px'}}>
-          <FormQTH jefes={jefes} editData={editingQTH} onCancelEdit={()=>setEditingQTH(null)} toast={toast}/>
+          <FormQTH jefes={jefes} qths={qths} editData={editingQTH} onCancelEdit={()=>setEditingQTH(null)} toast={toast}/>
           <ListaQTHs qths={qths} jefes={jefes} toast={toast} onEdit={q=>setEditingQTH(q)} evento={evento}
             motos={motos} infanteria={infanteria} refuerzo={refuerzo} tercerAnillo={tercerAnillo}/>
 
