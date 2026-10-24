@@ -569,6 +569,45 @@
     .item-row:hover { box-shadow: 0 6px 16px -10px rgba(15,35,70,.4); }
     .jefe-info { background: var(--sky); border-left: 3px solid var(--blue); border-radius: 0 10px 10px 0; }
     .empty-state { color: var(--muted); }
+
+    /* ── Barra de evento (v2) ── */
+    .evento-bar { display: grid; grid-template-columns: 1fr auto; gap: 16px 28px; align-items: end; padding: 18px 24px 14px; }
+    .eb-fields { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+    .eb-grow { flex: 1 1 260px; }
+    .eb-grow input { width: 100%; }
+    .eb-stats { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+    .eb-tiles { display: flex; gap: 8px; }
+    .eb-tile { min-width: 76px; padding: 7px 12px; border-radius: 12px; text-align: center; background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.16); }
+    .eb-tile b { display: block; font-family: var(--font-d); font-size: 20px; line-height: 1.1; font-weight: 800; }
+    .eb-tile span { font-size: 9.5px; letter-spacing: 1px; text-transform: uppercase; opacity: .7; font-weight: 700; }
+    .eb-tile.gold { background: linear-gradient(135deg, #f7c52c, #e9a800); border-color: transparent; color: #2c2100; box-shadow: 0 6px 18px -6px rgba(242,183,5,.6); }
+    .eb-tile.gold span { opacity: .8; }
+    .eb-stats .tipo-pills { justify-content: flex-end; }
+    .tipo-pill.sin { background: rgba(255,255,255,.14); color: rgba(255,255,255,.8); border: 1px dashed rgba(255,255,255,.4); }
+    .tipo-pill { padding: 3px 10px; font-size: 10.5px; border-radius: 999px; }
+    .eb-foot { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap;
+      padding-top: 12px; border-top: 1px solid rgba(255,255,255,.14); }
+    .eb-resumen { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; min-width: 0; }
+    .eb-resumen .evento-checks { margin: 0; }
+    .eb-line { font-size: 11.5px; font-weight: 600; color: rgba(255,255,255,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 520px; }
+    .eb-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .eb-actions .evento-btn { padding: 9px 16px; font-size: 12px; }
+    .evento-btn.guardar { background: linear-gradient(135deg, #2e9a4b, #1f7a38); }
+    @media (max-width: 860px) { .evento-bar { grid-template-columns: 1fr; padding: 14px; } .eb-stats { align-items: flex-start; } .eb-stats .tipo-pills { justify-content: flex-start; } .eb-line { white-space: normal; } }
+
+    /* ── Franja de contexto ── */
+    .ctx-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 12px; }
+    .ctx-card { display: flex; align-items: center; gap: 14px; padding: 12px 14px; background: #fff; border: 1px solid var(--line); border-radius: 16px;
+      box-shadow: 0 1px 2px rgba(15,35,70,.05), 0 8px 22px -14px rgba(15,35,70,.22); }
+    .ctx-ico { --c: var(--blue); width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 20px; background: color-mix(in srgb, var(--c) 14%, #fff); border: 1px solid color-mix(in srgb, var(--c) 28%, #fff); }
+    .ctx-info { flex: 1; min-width: 0; }
+    .ctx-tit { font-family: var(--font-d); font-size: 12px; font-weight: 700; color: var(--navy); letter-spacing: .3px; }
+    .ctx-sub { font-size: 11.5px; color: var(--muted); font-weight: 600; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ctx-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+    .ctx-chips span { padding: 1px 9px; border-radius: 999px; background: var(--sky); color: var(--navy); font-size: 10.5px; font-weight: 700; }
+    .ctx-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+    @media (max-width: 520px) { .ctx-strip { grid-template-columns: 1fr; } .ctx-card { flex-wrap: wrap; } .ctx-actions { flex-direction: row; width: 100%; } }
   </style>
 </head>
 <body>
@@ -2348,87 +2387,89 @@ function EventoBar({ evento, onChange, onGuardar, onNueva, onGuardarPlantilla, q
   const sinTipo = allItems.filter(x => !x.tipo).reduce((s,x) => s + (x.celdas || 0), 0);
   const hasTipos = Object.keys(tipoCounts).length > 0 || sinTipo > 0;
 
+  const efectivosMostrar = totalEfectivos > 0 ? totalEfectivos : total;
   return (
     <div className="evento-bar">
-      <div>
-        <label>ESTADIO / LUGAR</label>
-        <select value={evento.estadio} onChange={e=>onChange({...evento,estadio:e.target.value})} style={{minWidth:'180px'}}>
-          <option value="">— Seleccioná un estadio —</option>
-          {ESTADIOS.map(e=><option key={e} value={e}>{e}</option>)}
-          <option value="__otro__">Otro...</option>
-        </select>
-      </div>
-      {evento.estadio==='__otro__' && (
+      <div className="eb-fields">
         <div>
-          <label>NOMBRE DEL LUGAR</label>
-          <input placeholder="Escribí el nombre..." value={evento.otroEstadio}
-            onChange={e=>onChange({...evento,otroEstadio:e.target.value.toUpperCase()})} style={{minWidth:'160px'}} />
+          <label>ESTADIO / LUGAR</label>
+          <select value={evento.estadio} onChange={e=>onChange({...evento,estadio:e.target.value})} style={{minWidth:'190px'}}>
+            <option value="">— Seleccioná un estadio —</option>
+            {ESTADIOS.map(e=><option key={e} value={e}>{e}</option>)}
+            <option value="__otro__">Otro...</option>
+          </select>
         </div>
-      )}
-      <div>
-        <label>FECHA DEL EVENTO</label>
-        <input type="date" value={evento.fecha} onChange={e=>onChange({...evento,fecha:e.target.value})} />
+        {evento.estadio==='__otro__' && (
+          <div>
+            <label>NOMBRE DEL LUGAR</label>
+            <input placeholder="Escribí el nombre..." value={evento.otroEstadio}
+              onChange={e=>onChange({...evento,otroEstadio:e.target.value.toUpperCase()})} style={{minWidth:'170px'}} />
+          </div>
+        )}
+        <div>
+          <label>FECHA DEL EVENTO</label>
+          <input type="date" value={evento.fecha} onChange={e=>onChange({...evento,fecha:e.target.value})} />
+        </div>
+        <div className="eb-grow">
+          <label>EVENTO</label>
+          <input
+            placeholder="Ej: BOCA VS RIVER · CHAYANNE EN VÉLEZ"
+            value={evento.localidad}
+            onChange={e=>onChange({...evento,localidad:e.target.value.toUpperCase()})}
+            style={{minWidth:'240px'}}
+          />
+        </div>
       </div>
-      <div>
-        <label>EVENTO</label>
-        <input
-          placeholder="Ej: BOCA VS RIVER · CHAYANNE EN VÉLEZ"
-          value={evento.localidad}
-          onChange={e=>onChange({...evento,localidad:e.target.value.toUpperCase()})}
-          style={{minWidth:'240px'}}
-        />
+
+      <div className="eb-stats">
+        <div className="eb-tiles">
+          <div className="eb-tile"><b>{qths.length}</b><span>QTHs</span></div>
+          <div className="eb-tile"><b>{total}</b><span>Celdas</span></div>
+          <div className="eb-tile gold"><b>{efectivosMostrar}</b><span>Efectivos</span></div>
+        </div>
+        {hasTipos && (
+          <div className="tipo-pills">
+            {TIPOS_DISPONIBLES.map(t => tipoCounts[t] ? (
+              <span key={t} className="tipo-pill" style={{background: tipoColor(t), color:'#fff'}}>{t} · {tipoCounts[t]}</span>
+            ) : null)}
+            {sinTipo > 0 && <span className="tipo-pill sin">Sin tipo · {sinTipo}</span>}
+          </div>
+        )}
       </div>
-      <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:'10px'}}>
-        <div className="evento-status">
-          <div style={{fontWeight:'700',fontSize:'13px'}}>{qths.length} QTHs · {total} celdas</div>
+
+      <div className="eb-foot">
+        <div className="eb-resumen">
           <div className="evento-checks">
             {[['Estadio',!!nombre],['Fecha',!!evento.fecha],['Evento',!!(evento.localidad||'').trim()]].map(([l,ok])=>(
               <span key={l} className={ok?'ok':''}>{ok?'✓':'○'} {l}</span>
             ))}
           </div>
-          {totalEfectivos > 0 && totalEfectivos !== total && (
-            <div style={{fontWeight:'900',fontSize:'15px',color:'#ffd54f',marginTop:'2px'}}>
-              TOTAL: {totalEfectivos} efectivos
-            </div>
-          )}
-          {hasTipos && (
-            <div className="tipo-pills" style={{marginTop:'4px'}}>
-              {TIPOS_DISPONIBLES.map(t => tipoCounts[t] ? (
-                <span key={t} className="tipo-pill" style={{background: tipoColor(t), color:'#fff'}}>
-                  {t}: {tipoCounts[t]}
-                </span>
-              ) : null)}
-              {sinTipo > 0 && (
-                <span className="tipo-pill" style={{background:'rgba(255,255,255,.2)',color:'rgba(255,255,255,.7)',border:'1px solid rgba(255,255,255,.3)'}}>
-                  S/T: {sinTipo}
-                </span>
-              )}
-            </div>
-          )}
-          {nombre && <div style={{fontSize:'10px',opacity:.8,marginTop:'2px'}}>
+          {nombre && <div className="eb-line">
             {nombre}{evento.localidad&&` · ${evento.localidad}`}{evento.fecha&&` · ${fmtFecha(evento.fecha)}`}
           </div>}
         </div>
-        <button className="btn btn-success btn-sm" onClick={onGuardar}
-          disabled={saving||!evento.estadio||qths.length===0} title="Guardar en historial">
-          {saving?'⏳':'💾'} Guardar
-        </button>
-        <button className="evento-btn plantilla" onClick={onGuardarPlantilla}
-          disabled={!evento.estadio||qths.length===0}
-          title="Guardar como plantilla base para este estadio">
-          📌 Plantilla
-        </button>
-        <button className="evento-btn nueva" onClick={onNueva}
-          disabled={totalItems===0}
-          title="Limpiar distribución actual y empezar de cero">
-          🔄 NUEVA DISTRIBUCIÓN
-        </button>
+        <div className="eb-actions">
+          <button className="evento-btn guardar" onClick={onGuardar}
+            disabled={saving||!evento.estadio||qths.length===0} title="Guardar en historial">
+            {saving?'⏳':'💾'} Guardar
+          </button>
+          <button className="evento-btn plantilla" onClick={onGuardarPlantilla}
+            disabled={!evento.estadio||qths.length===0}
+            title="Guardar como plantilla base para este estadio">
+            📌 Plantilla
+          </button>
+          <button className="evento-btn nueva" onClick={onNueva}
+            disabled={totalItems===0}
+            title="Limpiar distribución actual y empezar de cero">
+            🔄 Nueva distribución
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-// ── PANEL JEFES ───────────────────────────────────────────────
+// ── PANEL JEFES// ── PANEL JEFES ───────────────────────────────────────────────
 function PanelJefes({ jefes, toast }) {
   const [open,    setOpen]    = useState(true);
   const [loading, setLoading] = useState(false);
@@ -6838,87 +6879,52 @@ function App() {
           qths={qths} saving={savingHist} totalItems={totalItems} totalEfectivos={totalEfectivos}
           infanteria={infanteria} refuerzo={refuerzo} tercerAnillo={tercerAnillo}/>
 
-        {/* ── Banner publicar a campo ── */}
-        {totalItems > 0 && (
-          <div style={{
-            background:'linear-gradient(90deg,#1b5e20,#2e7d32)',
-            color:'#fff', padding:'8px 20px',
-            display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap',
-            fontSize:'12px',
-          }}>
-            <span style={{fontSize:'16px'}}>📱</span>
-            <span>
-              <strong>Carga Operativa:</strong> publicá esta distribución para que los operadores carguen efectivos desde el celular ({totalItems} puestos · {totalEfectivos + motos.length} celdas).
-            </span>
-            <button
-              className="btn btn-sm"
-              style={{background:'#66bb6a',color:'#0b2e0d',border:'none',marginLeft:'auto',flexShrink:0,fontWeight:'800'}}
-              onClick={handlePublicarCampo}
-              disabled={publicando}
-            >
-              {publicando ? '⏳ Publicando...' : '📡 Publicar a Carga Operativa'}
-            </button>
-          </div>
-        )}
-
-        {/* ── Banner último guardado ── */}
-        {ultimoGuardado && (
-          <div style={{
-            background:'linear-gradient(90deg,#0d3349,#134a6e)',
-            color:'#fff', padding:'8px 20px',
-            display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap',
-            fontSize:'12px',
-          }}>
-            <span style={{fontSize:'16px'}}>📋</span>
-            <span>
-              <strong>Último guardado para {estadioNombre}:</strong>
-              {' '}{fmtFecha(ultimoGuardado.fechaEvento)}
-              {ultimoGuardado.localidad && ` · ${ultimoGuardado.localidad}`}
-              {' '}·{' '}<span style={{opacity:.8}}>{(ultimoGuardado.qths||[]).length} QTHs · {(ultimoGuardado.qths||[]).reduce((s,q)=>s+(q.celdas||0),0)} celdas{(ultimoGuardado.motos||[]).length>0&&` · ${ultimoGuardado.motos.length} motos`}{(ultimoGuardado.tercerAnillo||[]).length>0&&` · ${ultimoGuardado.tercerAnillo.length} 3er anillo`}</span>
-            </span>
-            <button
-              className="btn btn-sm"
-              style={{background:'#1e88e5',color:'#fff',border:'none',marginLeft:'auto',flexShrink:0}}
-              onClick={handleCargarUltimo}
-              disabled={cargando}
-            >
-              {cargando ? '⏳ Cargando...' : '✏️ Cargar para editar'}
-            </button>
-            <button
-              className="btn btn-sm btn-secondary"
-              style={{flexShrink:0}}
-              onClick={()=>{ setViendoHist(ultimoGuardado); }}
-            >Ver detalle</button>
-          </div>
-        )}
-
-        {/* ── Banner plantilla disponible ── */}
-        {plantillaActual && (
-          <div style={{
-            background:'linear-gradient(90deg,#311b92,#5e35b1)',
-            color:'#fff', padding:'8px 20px',
-            display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap',
-            fontSize:'12px',
-          }}>
-            <span style={{fontSize:'16px'}}>📌</span>
-            <span>
-              <strong>Plantilla base para {estadioNombre}</strong>
-              {' '}·{' '}<span style={{opacity:.8}}>{(plantillaActual.qths||[]).length} QTHs · {(plantillaActual.qths||[]).reduce((s,q)=>s+(q.celdas||0),0)} celdas{(plantillaActual.motos||[]).length>0&&` · ${plantillaActual.motos.length} motos`}</span>
-              {' '}·{' '}<span style={{opacity:.6}}>Guardada: {fmtTs(plantillaActual.guardadoEn)}</span>
-            </span>
-            <button
-              className="btn btn-sm"
-              style={{background:'#7c4dff',color:'#fff',border:'none',marginLeft:'auto',flexShrink:0}}
-              onClick={handleCargarPlantilla}
-              disabled={cargando}
-            >
-              {cargando ? '⏳ Cargando...' : '📥 Cargar plantilla'}
-            </button>
-            <button
-              className="btn btn-sm"
-              style={{background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)',flexShrink:0}}
-              onClick={handleEliminarPlantilla}
-            >🗑</button>
+        {/* ── Franja de contexto: último guardado y plantilla ── */}
+        {(ultimoGuardado || plantillaActual) && (
+          <div style={{maxWidth:'1100px',margin:'0 auto',padding:'14px 14px 0'}}>
+            <div className="ctx-strip">
+              {ultimoGuardado && (
+                <div className="ctx-card">
+                  <div className="ctx-ico" style={{'--c':'#1e6fb8'}}>📋</div>
+                  <div className="ctx-info">
+                    <div className="ctx-tit">Último guardado · {estadioNombre}</div>
+                    <div className="ctx-sub">{fmtFecha(ultimoGuardado.fechaEvento)}{ultimoGuardado.localidad && ` · ${ultimoGuardado.localidad}`}</div>
+                    <div className="ctx-chips">
+                      <span>{(ultimoGuardado.qths||[]).length} QTHs</span>
+                      <span>{(ultimoGuardado.qths||[]).reduce((s,q)=>s+(q.celdas||0),0)} celdas</span>
+                      {(ultimoGuardado.motos||[]).length>0 && <span>{ultimoGuardado.motos.length} motos</span>}
+                      {(ultimoGuardado.tercerAnillo||[]).length>0 && <span>{ultimoGuardado.tercerAnillo.length} 3er anillo</span>}
+                    </div>
+                  </div>
+                  <div className="ctx-actions">
+                    <button className="btn btn-primary btn-sm" onClick={handleCargarUltimo} disabled={cargando}>
+                      {cargando ? '⏳ Cargando...' : '✏️ Cargar para editar'}
+                    </button>
+                    <button className="btn btn-secondary btn-sm" onClick={()=>{ setViendoHist(ultimoGuardado); }}>Ver detalle</button>
+                  </div>
+                </div>
+              )}
+              {plantillaActual && (
+                <div className="ctx-card">
+                  <div className="ctx-ico" style={{'--c':'#6a3fd0'}}>📌</div>
+                  <div className="ctx-info">
+                    <div className="ctx-tit">Plantilla base · {estadioNombre}</div>
+                    <div className="ctx-sub">Guardada: {fmtTs(plantillaActual.guardadoEn)}</div>
+                    <div className="ctx-chips">
+                      <span>{(plantillaActual.qths||[]).length} QTHs</span>
+                      <span>{(plantillaActual.qths||[]).reduce((s,q)=>s+(q.celdas||0),0)} celdas</span>
+                      {(plantillaActual.motos||[]).length>0 && <span>{plantillaActual.motos.length} motos</span>}
+                    </div>
+                  </div>
+                  <div className="ctx-actions">
+                    <button className="btn btn-sm" style={{background:'linear-gradient(135deg,#6a3fd0,#4a28a8)',color:'#fff'}} onClick={handleCargarPlantilla} disabled={cargando}>
+                      {cargando ? '⏳ Cargando...' : '📥 Cargar plantilla'}
+                    </button>
+                    <button className="btn btn-secondary btn-sm" onClick={handleEliminarPlantilla} title="Eliminar plantilla">🗑</button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
